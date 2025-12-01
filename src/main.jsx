@@ -9,6 +9,8 @@ import AdminLayout from "./components/AdminLayout";
 import LoginPage from "./pages/Login";
 import RoutesAdmin from "./pages/RoutesAdmin";
 import CarsAdmin from "./pages/CarsAdmin";
+import BookingsAdmin from "./pages/BookingsAdmin";
+
 
 
 ReactDOM.createRoot(document.getElementById("root")).render(
@@ -28,11 +30,13 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   <Routes>
                     <Route path="routes" element={<RoutesAdmin />} />
                     <Route path="cars" element={<CarsAdmin />} />
+                    <Route path="bookings" element={<BookingsAdmin />} />
                     {/* Sau này thêm: cars, bookings, drivers... */}
                     <Route
                       path="*"
                       element={<Navigate to="/admin/routes" replace />}
                     />
+                    
                   </Routes>
                   
 
