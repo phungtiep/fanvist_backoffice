@@ -10,7 +10,9 @@ import LoginPage from "./pages/Login";
 import RoutesAdmin from "./pages/RoutesAdmin";
 import CarsAdmin from "./pages/CarsAdmin";
 import BookingsAdmin from "./pages/BookingsAdmin";
-
+import DriversAdmin from "./pages/DriversAdmin";
+import VehiclesAdmin from "./pages/VehiclesAdmin";
+import ScheduleCalendar from "./components/ScheduleCalendar";
 
 
 ReactDOM.createRoot(document.getElementById("root")).render(
@@ -20,7 +22,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Routes>
           {/* Login admin */}
           <Route path="/admin/login" element={<LoginPage />} />
-
+          <Route path="/admin/schedule" element={<ScheduleCalendar />} />
           {/* Admin dashboard */}
           <Route
             path="/admin/*"
@@ -36,6 +38,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                       path="*"
                       element={<Navigate to="/admin/routes" replace />}
                     />
+                    <Route path="drivers" element={<DriversAdmin/>} />
+                    <Route path="vehicles" element={<VehiclesAdmin/>} />
                     
                   </Routes>
                   

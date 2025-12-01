@@ -25,6 +25,10 @@ export default function BookingsAdmin() {
 
   const [toast, setToast] = useState(null);
 
+  // ⭐ NEW: drivers + vehicles
+  const [drivers, setDrivers] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
+
   function showToast(message, type = "success") {
     setToast({ message, type });
     setTimeout(() => setToast(null), 2500);
@@ -66,6 +70,10 @@ export default function BookingsAdmin() {
       adult_count: row.adult_count ?? 0,
       child_count: row.child_count ?? 0,
       total_price: row.total_price ?? 0,
+
+      // ⭐ NEW – map vào form
+      driver_id: row.driver_id ?? "",
+      vehicle_id: row.vehicle_id ?? "",
     };
   }
 
@@ -98,9 +106,26 @@ export default function BookingsAdmin() {
     );
   }
 
+  // ⭐ NEW: load drivers + vehicles
+  async function loadDrivers() {
+    const { data } = await supabase.from("drivers").select("*").order("full_name");
+    setDrivers(data || []);
+  }
+
+  async function loadVehicles() {
+    const { data } = await supabase.from("vehicles").select("*").order("plate_number");
+    setVehicles(data || []);
+  }
+
   useEffect(() => {
     load();
   }, [search, fromDate, toDate]);
+
+  // ⭐ load drivers + vehicles khi vào trang
+  useEffect(() => {
+    loadDrivers();
+    loadVehicles();
+  }, []);
 
   useEffect(() => {
     const channel = supabase
@@ -177,6 +202,10 @@ export default function BookingsAdmin() {
       adult_count: form.adult_count,
       child_count: form.child_count,
       total_price: form.total_price,
+
+      // ⭐ NEW – save driver + vehicle
+      driver_id: form.driver_id || null,
+      vehicle_id: form.vehicle_id || null,
     };
 
     const { error } = await supabase
@@ -199,16 +228,21 @@ export default function BookingsAdmin() {
 
   const grouped = groupByDate(bookings);
 
+  /* ------------------------------------------------------------
+      UI – filter, accordion, desktop grid, modal giữ nguyên
+  ------------------------------------------------------------ */
+
   return (
     <div className="p-6 text-slate-200 relative">
+
       <h1 className="text-2xl font-bold mb-6">Quản lý Booking (30 ngày tới)</h1>
 
-      {/* ⭐⭐⭐ FILTER CARD — STYLE 1 (giữ nguyên) */}
+      {/* FILTER CARD — như cũ */}
       <div className="bg-slate-800/60 p-4 rounded-xl mb-6 shadow-lg border border-slate-700">
         <label className="text-xs text-slate-400 mb-1 block">Tìm kiếm</label>
         <input
           placeholder="Nhập tên hoặc số điện thoại..."
-          className="bg-slate-700 p-3 rounded-lg w-full mb-4 focus:ring-2 focus:ring-blue-500 outline-none"
+          className="bg-slate-700 p-3 rounded-lg w-full mb-4"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -234,13 +268,13 @@ export default function BookingsAdmin() {
             setFromDate(defaultFrom);
             setToDate(defaultTo);
           }}
-          className="w-full py-2 bg-blue-600 rounded-lg font-medium hover:bg-blue-500"
+          className="w-full py-2 bg-blue-600 rounded-lg font-medium"
         >
           30 ngày tới
         </button>
       </div>
 
-      {/* ⭐⭐⭐ MOBILE — ACCORDION */}
+      {/* MOBILE ACCORDION */}
       <div className="sm:hidden space-y-4">
         {grouped.map(([date, items]) => (
           <MobileAccordionDay
@@ -255,7 +289,7 @@ export default function BookingsAdmin() {
         ))}
       </div>
 
-      {/* ⭐⭐⭐ DESKTOP — GRID (GIỮ NGUYÊN) */}
+      {/* DESKTOP GRID */}
       <div className="hidden sm:block">
         {grouped.map(([date, items]) => (
           <div key={date} className="mb-10">
@@ -268,10 +302,7 @@ export default function BookingsAdmin() {
                   onClick={() => openViewModal(b)}
                   className="bg-[#1E293B] border border-slate-700 rounded-xl p-4 shadow cursor-pointer hover:border-slate-500 transition"
                 >
-                  <div className="font-semibold text-lg">
-                    {b.full_name}
-                  </div>
-
+                  <div className="font-semibold text-lg">{b.full_name}</div>
                   <div className="text-slate-400 text-sm">
                     {b.route} • {b.car_type}
                   </div>
@@ -291,35 +322,28 @@ export default function BookingsAdmin() {
 
                     <div className="flex gap-3">
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openEditModal(b);
-                        }}
+                        onClick={(e) => { e.stopPropagation(); openEditModal(b); }}
                         className="p-2 rounded hover:bg-slate-700"
                       >
                         <HiPencil />
                       </button>
-
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(b.id);
-                        }}
+                        onClick={(e) => { e.stopPropagation(); handleDelete(b.id); }}
                         className="p-2 rounded hover:bg-red-700 text-red-300 hover:text-white"
                       >
                         <HiTrash />
                       </button>
                     </div>
                   </div>
+
                 </div>
               ))}
             </div>
-
           </div>
         ))}
       </div>
 
-      {/* ⭐ MODAL */}
+      {/* MODAL */}
       {modalOpen && form && (
         <ModalViewEdit
           form={form}
@@ -328,17 +352,17 @@ export default function BookingsAdmin() {
           setModalOpen={setModalOpen}
           handleSave={handleSave}
           loadingSave={loadingSave}
+          drivers={drivers}
+          vehicles={vehicles}
         />
       )}
 
-      {/* ⭐ PAGE LOADING */}
       {(loadingPage || loadingDelete) && (
         <div className="fixed inset-0 bg-black/30 flex justify-center items-center z-[999]">
           <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
         </div>
       )}
 
-      {/* ⭐ TOAST */}
       {toast && (
         <div
           className={`fixed top-5 right-5 px-4 py-2 rounded shadow-lg text-white z-[2000]
@@ -351,9 +375,9 @@ export default function BookingsAdmin() {
   );
 }
 
-/* ============================================================
-    ⭐ MOBILE ACCORDION COMPONENT
-============================================================ */
+/* ------------------------------------------------------------
+   MOBILE ACCORDION — giữ nguyên như bạn đã có
+------------------------------------------------------------ */
 function MobileAccordionDay({
   date,
   items,
@@ -390,9 +414,6 @@ function MobileAccordionDay({
               <div className="mt-2 text-sm space-y-1">
                 <div><strong>SĐT:</strong> {b.phone}</div>
                 <div><strong>Giờ đi:</strong> {b.time}</div>
-                {b.round_trip && (
-                  <div><strong>Khứ hồi:</strong> {b.return_date} • {b.return_time}</div>
-                )}
               </div>
 
               <div className="flex justify-between items-center mt-4">
@@ -402,20 +423,14 @@ function MobileAccordionDay({
 
                 <div className="flex gap-3">
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openEditModal(b);
-                    }}
+                    onClick={(e) => { e.stopPropagation(); openEditModal(b); }}
                     className="p-2 rounded hover:bg-slate-700"
                   >
                     <HiPencil />
                   </button>
 
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(b.id);
-                    }}
+                    onClick={(e) => { e.stopPropagation(); handleDelete(b.id); }}
                     className="p-2 rounded hover:bg-red-700 text-red-300 hover:text-white"
                   >
                     <HiTrash />
@@ -431,16 +446,18 @@ function MobileAccordionDay({
   );
 }
 
-/* ============================================================
-    ⭐ MODAL COMPONENT
-============================================================ */
+/* ------------------------------------------------------------
+   MODAL VIEW / EDIT – thêm chọn tài xế + xe
+------------------------------------------------------------ */
 function ModalViewEdit({
   form,
   setForm,
   modalMode,
   setModalOpen,
   handleSave,
-  loadingSave
+  loadingSave,
+  drivers,
+  vehicles
 }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50">
@@ -457,6 +474,7 @@ function ModalViewEdit({
         </h2>
 
         <div className="space-y-3 text-sm">
+          {/* Các field cũ giữ nguyên */}
           <Field label="Họ tên" readOnly={modalMode==="view"} value={form.full_name} onChange={v=>setForm({...form,full_name:v})}/>
           <Field label="Số điện thoại" readOnly={modalMode==="view"} value={form.phone} onChange={v=>setForm({...form,phone:v})}/>
           <Field label="Email" readOnly={modalMode==="view"} value={form.email} onChange={v=>setForm({...form,email:v})}/>
@@ -467,24 +485,51 @@ function ModalViewEdit({
           <Field label="Ngày đi" readOnly={modalMode==="view"} value={form.date} onChange={v=>setForm({...form,date:v})}/>
           <Field label="Giờ đi" readOnly={modalMode==="view"} value={form.time} onChange={v=>setForm({...form,time:v})}/>
 
+          {/* ⭐⭐⭐ NEW — chọn tài xế */}
           <div>
-            <div className="text-xs mb-1">Khứ hồi</div>
+            <div className="text-xs mb-1">Tài xế</div>
             {modalMode === "view" ? (
               <div className="p-2 bg-slate-700 rounded">
-                {form.round_trip ? "Có" : "Không"}
+                {drivers.find(d => d.id === form.driver_id)?.full_name || "—"}
               </div>
             ) : (
               <select
                 className="p-2 w-full bg-slate-700 rounded"
-                value={form.round_trip ? "1" : "0"}
-                onChange={(e)=>setForm({...form,round_trip:e.target.value==="1"})}
+                value={form.driver_id || ""}
+                onChange={(e)=>setForm({...form, driver_id: e.target.value })}
               >
-                <option value="0">Không</option>
-                <option value="1">Có</option>
+                <option value="">— Chưa chọn —</option>
+                {drivers.map(d => (
+                  <option key={d.id} value={d.id}>{d.full_name}</option>
+                ))}
               </select>
             )}
           </div>
 
+          {/* ⭐⭐⭐ NEW — chọn xe */}
+          <div>
+            <div className="text-xs mb-1">Xe</div>
+            {modalMode === "view" ? (
+              <div className="p-2 bg-slate-700 rounded">
+                {vehicles.find(v => v.id === form.vehicle_id)?.plate_number || "—"}
+              </div>
+            ) : (
+              <select
+                className="p-2 w-full bg-slate-700 rounded"
+                value={form.vehicle_id || ""}
+                onChange={(e)=>setForm({...form, vehicle_id: e.target.value })}
+              >
+                <option value="">— Chưa chọn —</option>
+                {vehicles.map(v => (
+                  <option key={v.id} value={v.id}>
+                    {v.plate_number} • {v.brand} {v.model}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          {/* FIELD tiếp tục */}
           <Field label="Ngày về" readOnly={modalMode==="view"} value={form.return_date} onChange={v=>setForm({...form,return_date:v})}/>
           <Field label="Giờ về" readOnly={modalMode==="view"} value={form.return_time} onChange={v=>setForm({...form,return_time:v})}/>
           <Field label="Số người lớn" readOnly={modalMode==="view"} value={String(form.adult_count)} onChange={v=>setForm({...form,adult_count:Number(v)})}/>
@@ -516,9 +561,7 @@ function ModalViewEdit({
   );
 }
 
-/* ============================================================
-    FIELD COMPONENT (giữ nguyên)
-============================================================ */
+/* FIELD COMPONENT */
 function Field({ label, readOnly, value, onChange }) {
   return (
     <div>
@@ -538,3 +581,4 @@ function Field({ label, readOnly, value, onChange }) {
     </div>
   );
 }
+

@@ -81,8 +81,7 @@ function Sidebar({ onLogout, closeMenu }) {
         to="/admin/bookings"
         onClick={() => handleClick()}
         className={({ isActive }) =>
-          `block px-4 py-2 rounded text-sm transition ${
-            isActive ? "bg-slate-800 text-white" : "text-slate-300 hover:bg-slate-900"
+          `block px-4 py-2 rounded text-sm transition ${isActive ? "bg-slate-800 text-white" : "text-slate-300 hover:bg-slate-900"
           }`
         }
       >
@@ -93,8 +92,7 @@ function Sidebar({ onLogout, closeMenu }) {
         to="/admin/routes"
         onClick={() => handleClick()}
         className={({ isActive }) =>
-          `block px-4 py-2 rounded text-sm transition ${
-            isActive ? "bg-slate-800 text-white" : "text-slate-300 hover:bg-slate-900"
+          `block px-4 py-2 rounded text-sm transition ${isActive ? "bg-slate-800 text-white" : "text-slate-300 hover:bg-slate-900"
           }`
         }
       >
@@ -105,13 +103,43 @@ function Sidebar({ onLogout, closeMenu }) {
         to="/admin/cars"
         onClick={() => handleClick()}
         className={({ isActive }) =>
-          `block px-4 py-2 rounded text-sm transition ${
-            isActive ? "bg-slate-800 text-white" : "text-slate-300 hover:bg-slate-900"
+          `block px-4 py-2 rounded text-sm transition ${isActive ? "bg-slate-800 text-white" : "text-slate-300 hover:bg-slate-900"
           }`
         }
       >
         Quản lý xe
       </NavLink>
+      <NavLink
+        to="/admin/drivers"
+        className={({ isActive }) =>
+          `block px-3 py-2 rounded-lg text-sm ${isActive ? "bg-slate-800 text-white" : "text-slate-300 hover:bg-slate-900"
+          }`
+        }
+      >
+        Quản lý tài xế
+      </NavLink>
+      <NavLink
+        to="/admin/vehicles"
+        className={({ isActive }) =>
+          `block px-3 py-2 rounded-lg text-sm ${isActive ? "bg-slate-800 text-white" : "text-slate-300 hover:bg-slate-900"
+          }`
+        }
+      >
+        Quản lý xe công ty
+      </NavLink>
+      <NavLink
+        to="/admin/schedule"
+        className={({ isActive }) =>
+          `block px-3 py-2 rounded-lg text-sm ${isActive
+            ? "bg-slate-800 text-white"
+            : "text-slate-300 hover:bg-slate-900"
+          }`
+        }
+      >
+        Calendar phân công
+      </NavLink>
+
+
 
       <button
         onClick={onLogout}
