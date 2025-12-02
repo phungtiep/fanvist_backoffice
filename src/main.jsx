@@ -13,6 +13,8 @@ import BookingsAdmin from "./pages/BookingsAdmin";
 import DriversAdmin from "./pages/DriversAdmin";
 import VehiclesAdmin from "./pages/VehiclesAdmin";
 import ScheduleCalendar from "./components/ScheduleCalendar";
+import DriverSalaryAdmin from "./pages/DriverSalaryAdmin";
+import RevenueDashboard from "./pages/RevenueDashboard";
 
 
 ReactDOM.createRoot(document.getElementById("root")).render(
@@ -40,7 +42,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                     />
                     <Route path="drivers" element={<DriversAdmin/>} />
                     <Route path="vehicles" element={<VehiclesAdmin/>} />
-                    
+                    <Route path="driver-salary" element={<DriverSalaryAdmin/>} />
+                    <Route path="revenue" element={<RevenueDashboard/>} />
                   </Routes>
                   
 
