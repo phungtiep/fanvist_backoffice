@@ -20,7 +20,7 @@ export default function BookingsAdmin() {
   const [toDate, setToDate] = useState(defaultTo);
 
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState("view"); 
+  const [modalMode, setModalMode] = useState("view"); // view | edit | add
   const [form, setForm] = useState(null);
 
   const [loadingPage, setLoadingPage] = useState(true);
@@ -38,6 +38,10 @@ export default function BookingsAdmin() {
     setTimeout(() => setToast(null), 2500);
   }
 
+  /* =========================================================================
+     HELPERS
+  ========================================================================= */
+
   function formatDateVN(dateStr) {
     const d = new Date(dateStr);
     const dd = String(d.getDate()).padStart(2, "0");
@@ -53,31 +57,6 @@ export default function BookingsAdmin() {
       groups[b.date].push(b);
     });
     return Object.entries(groups);
-  }
-
-  /** FIXED — tạo form rỗng hợp lệ khi ADD */
-  function emptyForm() {
-    return {
-      id: null,
-      full_name: "",
-      phone: "",
-      email: "",
-      route: "",
-      car_type: "",
-      pickup_place: "",
-      dropoff_place: "",
-      date: new Date().toISOString().split("T")[0], // auto hôm nay
-      time: "",
-      round_trip: false,
-      return_date: "",
-      return_time: "",
-      note: "",
-      adult_count: 0,
-      child_count: 0,
-      total_price: 0,
-      driver_id: "",
-      vehicle_id: "",
-    };
   }
 
   function rowToForm(row) {
@@ -114,9 +93,7 @@ export default function BookingsAdmin() {
     let query = supabase.from("bookings").select("*");
 
     if (search) {
-      query = query.or(
-        `full_name.ilike.%${search}%,phone.ilike.%${search}%`
-      );
+      query = query.or(`full_name.ilike.%${search}%,phone.ilike.%${search}%`);
     }
 
     query = query.gte("date", fromDate).lte("date", toDate);
@@ -147,10 +124,7 @@ export default function BookingsAdmin() {
   }
 
   async function loadRoutes() {
-    const { data } = await supabase
-      .from("routes")
-      .select("code,name")
-      .order("name");
+    const { data } = await supabase.from("routes").select("code,name").order("name");
     setRoutes(data || []);
   }
 
@@ -161,6 +135,10 @@ export default function BookingsAdmin() {
       .order("seat_count");
     setCars(data || []);
   }
+
+  /* =========================================================================
+     EFFECTS
+  ========================================================================= */
 
   useEffect(() => {
     load();
@@ -200,12 +178,6 @@ export default function BookingsAdmin() {
   const handleSave = async () => {
     if (!form) return;
 
-    // Validate ngày + giờ
-    if (!form.date || !form.time) {
-      showToast("Vui lòng nhập ngày và giờ!", "error");
-      return;
-    }
-
     setLoadingSave(true);
 
     const payload = {
@@ -235,17 +207,13 @@ export default function BookingsAdmin() {
       const res = await supabase.from("bookings").insert(payload);
       error = res.error;
     } else {
-      const res = await supabase
-        .from("bookings")
-        .update(payload)
-        .eq("id", form.id);
+      const res = await supabase.from("bookings").update(payload).eq("id", form.id);
       error = res.error;
     }
 
     setLoadingSave(false);
 
     if (error) {
-      console.error(error);
       showToast("Lưu thất bại!", "error");
       return;
     }
@@ -254,6 +222,7 @@ export default function BookingsAdmin() {
     setModalOpen(false);
     load();
   };
+
   /* =========================================================================
      UI — MAIN RETURN
   ========================================================================= */
@@ -270,7 +239,7 @@ export default function BookingsAdmin() {
         <button
           className="px-4 py-2 bg-blue-600 rounded-lg flex items-center gap-2"
           onClick={() => {
-            setForm(emptyForm());
+            setForm(rowToForm({}));
             setModalMode("add");
             setModalOpen(true);
           }}
@@ -438,17 +407,12 @@ export default function BookingsAdmin() {
   );
 }
 
+
 /* =========================================================================
    MOBILE ACCORDION
 =========================================================================== */
-function MobileAccordionDay({
-  date,
-  items,
-  formatDateVN,
-  openViewModal,
-  openEditModal,
-  handleDelete
-}) {
+
+function MobileAccordionDay({ date, items, formatDateVN, openViewModal, openEditModal, handleDelete }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -513,9 +477,12 @@ function MobileAccordionDay({
   );
 }
 
+
+
 /* =========================================================================
    MODAL — VIEW / EDIT / ADD
 =========================================================================== */
+
 function ModalViewEdit({
   form,
   setForm,
@@ -541,160 +508,130 @@ function ModalViewEdit({
         )}
 
         <h2 className="text-xl font-bold mb-4">
-          {modalMode === "add"
-            ? "Thêm Booking"
-            : modalMode === "edit"
-            ? "Sửa Booking"
-            : "Chi tiết Booking"}
+          {modalMode === "add" ? "Thêm Booking" :
+           modalMode === "edit" ? "Sửa Booking" : "Chi tiết Booking"}
         </h2>
 
         <div className="space-y-3 text-sm">
 
-          <Field label="Họ tên" readOnly={readOnly} value={form.full_name} onChange={(v)=>setForm({...form,full_name:v})}/>
-          <Field label="Số điện thoại" readOnly={readOnly} value={form.phone} onChange={(v)=>setForm({...form,phone:v})}/>
-          <Field label="Email" readOnly={readOnly} value={form.email} onChange={(v)=>setForm({...form,email:v})}/>
+          <Field label="Họ tên" readOnly={readOnly} value={form.full_name}
+                 onChange={v => setForm({ ...form, full_name: v })} />
 
-          {/* ROUTES */}
-          <div>
-            <label className="text-xs">Tuyến đường</label>
-            {readOnly ? (
-              <div className="p-2 bg-slate-700 rounded">{form.route}</div>
-            ) : (
-              <select
-                className="p-2 w-full bg-slate-700 rounded mt-1"
-                value={form.route}
-                onChange={(e)=>setForm({...form, route: e.target.value})}
-              >
-                <option value="">— Chọn tuyến —</option>
-                {routes.map((r)=>(
-                  <option key={r.code} value={r.code}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
+          <Field label="Số điện thoại" readOnly={readOnly} value={form.phone}
+                 onChange={v => setForm({ ...form, phone: v })} />
 
-          {/* CAR TYPES */}
-          <div>
-            <label className="text-xs">Loại xe</label>
-            {readOnly ? (
-              <div className="p-2 bg-slate-700 rounded">{form.car_type}</div>
-            ) : (
-              <select
-                className="p-2 w-full bg-slate-700 rounded mt-1"
-                value={form.car_type}
-                onChange={(e)=>setForm({...form, car_type: e.target.value})}
-              >
-                <option value="">— Chọn loại xe —</option>
-                {cars.map((c)=>(
-                  <option key={c.id} value={c.code}>
-                    {c.code} • {c.seat_count} chỗ • {c.base_price.toLocaleString("vi-VN")} đ
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
+          <Field label="Email" readOnly={readOnly} value={form.email}
+                 onChange={v => setForm({ ...form, email: v })} />
 
-          <Field label="Điểm đón" readOnly={readOnly} value={form.pickup_place} onChange={(v)=>setForm({...form,pickup_place:v})}/>
-          <Field label="Điểm trả" readOnly={readOnly} value={form.dropoff_place} onChange={(v)=>setForm({...form,dropoff_place:v})}/>
+          {/* TUYẾN ĐƯỜNG */}
+          <SelectField
+            label="Tuyến đường"
+            readOnly={readOnly}
+            value={form.route}
+            onChange={(value) => setForm({ ...form, route: value })}
+            options={routes.map((r) => ({ value: r.code, label: r.name }))}
+          />
 
-          {/* DATE */}
-          <div>
-            <label className="text-xs">Ngày đi</label>
-            {readOnly ? (
-              <div className="p-2 bg-slate-700 rounded">{form.date}</div>
-            ) : (
-              <input
-                type="date"
-                className="w-full p-2 bg-slate-700 rounded mt-1"
-                value={form.date}
-                onChange={(e)=>setForm({...form,date:e.target.value})}
-              />
-            )}
-          </div>
+          {/* LOẠI XE */}
+          <SelectField
+            label="Loại xe"
+            readOnly={readOnly}
+            value={form.car_type}
+            onChange={(value) => setForm({ ...form, car_type: value })}
+            options={cars.map((c) => ({
+              value: c.code,
+              label: `${c.code} • ${c.seat_count} chỗ • ${c.base_price.toLocaleString("vi-VN")} đ`
+            }))}
+          />
 
-          {/* TIME */}
-          <div>
-            <label className="text-xs">Giờ đi</label>
-            {readOnly ? (
-              <div className="p-2 bg-slate-700 rounded">{form.time}</div>
-            ) : (
-              <input
-                type="time"
-                className="w-full p-2 bg-slate-700 rounded mt-1"
-                value={form.time}
-                onChange={(e)=>setForm({...form,time:e.target.value})}
-              />
-            )}
-          </div>
+          <Field label="Điểm đón" readOnly={readOnly} value={form.pickup_place}
+                 onChange={v => setForm({ ...form, pickup_place: v })} />
 
-          {/* DRIVER */}
-          <div>
-            <label className="text-xs">Tài xế</label>
-            {readOnly ? (
-              <div className="p-2 bg-slate-700 rounded">
-                {drivers.find(d=>d.id===form.driver_id)?.full_name || "—"}
-              </div>
-            ) : (
-              <select
-                className="p-2 w-full bg-slate-700 rounded mt-1"
-                value={form.driver_id}
-                onChange={(e)=>setForm({...form, driver_id: e.target.value})}
-              >
-                <option value="">— Chưa phân công —</option>
-                {drivers.map((d)=>(
-                  <option key={d.id} value={d.id}>
-                    {d.full_name} • {d.phone}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
+          <Field label="Điểm trả" readOnly={readOnly} value={form.dropoff_place}
+                 onChange={v => setForm({ ...form, dropoff_place: v })} />
 
-          {/* VEHICLE */}
-          <div>
-            <label className="text-xs">Xe</label>
-            {readOnly ? (
-              <div className="p-2 bg-slate-700 rounded">
-                {vehicles.find(v=>v.id===form.vehicle_id)?.plate_number || "—"}
-              </div>
-            ) : (
-              <select
-                className="p-2 w-full bg-slate-700 rounded mt-1"
-                value={form.vehicle_id}
-                onChange={(e)=>setForm({...form, vehicle_id: e.target.value})}
-              >
-                <option value="">— Chưa gán xe —</option>
-                {vehicles.map((v)=>(
-                  <option key={v.id} value={v.id}>
-                    {v.plate_number}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
+          {/* NGÀY & GIỜ */}
+          <InputDateTime
+            label="Ngày đi"
+            type="date"
+            readOnly={readOnly}
+            value={form.date}
+            onChange={(v) => setForm({ ...form, date: v })}
+          />
 
-          <Field label="Số người lớn" readOnly={readOnly} value={form.adult_count} onChange={(v)=>setForm({...form,adult_count:Number(v)})}/>
-          <Field label="Số trẻ em" readOnly={readOnly} value={form.child_count} onChange={(v)=>setForm({...form,child_count:Number(v)})}/>
-          <Field label="Tổng tiền" readOnly={readOnly} value={form.total_price} onChange={(v)=>setForm({...form,total_price:Number(v)})}/>
-          <Field label="Ghi chú" readOnly={readOnly} value={form.note} onChange={(v)=>setForm({...form,note:v})}/>
+          <InputDateTime
+            label="Giờ đi"
+            type="time"
+            readOnly={readOnly}
+            value={form.time}
+            onChange={(v) => setForm({ ...form, time: v })}
+          />
+
+          {/* NGÀY KHỨ HỒI */}
+          <InputDateTime
+            label="Ngày về (khứ hồi)"
+            type="date"
+            readOnly={readOnly}
+            value={form.return_date}
+            onChange={(v) => setForm({ ...form, return_date: v })}
+          />
+
+          {/* GIỜ KHỨ HỒI */}
+          <InputDateTime
+            label="Giờ về (khứ hồi)"
+            type="time"
+            readOnly={readOnly}
+            value={form.return_time}
+            onChange={(v) => setForm({ ...form, return_time: v })}
+          />
+
+          {/* TL TX + XE */}
+          <SelectField
+            label="Tài xế"
+            readOnly={readOnly}
+            value={form.driver_id}
+            onChange={(v) => setForm({ ...form, driver_id: v })}
+            options={drivers.map((d) => ({
+              value: d.id,
+              label: `${d.full_name} • ${d.phone}`
+            }))}
+          />
+
+          <SelectField
+            label="Xe"
+            readOnly={readOnly}
+            value={form.vehicle_id}
+            onChange={(v) => setForm({ ...form, vehicle_id: v })}
+            options={vehicles.map((x) => ({
+              value: x.id,
+              label: x.plate_number
+            }))}
+          />
+
+          <Field label="Số người lớn" readOnly={readOnly} value={form.adult_count}
+                 onChange={(v) => setForm({ ...form, adult_count: Number(v) })} />
+
+          <Field label="Số trẻ em" readOnly={readOnly} value={form.child_count}
+                 onChange={(v) => setForm({ ...form, child_count: Number(v) })} />
+
+          <Field label="Tổng tiền" readOnly={readOnly} value={form.total_price}
+                 onChange={(v) => setForm({ ...form, total_price: Number(v) })} />
+
+          <Field label="Ghi chú" readOnly={readOnly} value={form.note}
+                 onChange={(v) => setForm({ ...form, note: v })} />
+
         </div>
 
-        {/* MODAL BUTTONS */}
+        {/* BUTTONS */}
         <div className="flex justify-end gap-2 mt-5">
-          <button
-            className="px-4 py-2 bg-slate-600 rounded"
-            onClick={()=>setModalOpen(false)}
-          >
+          <button className="px-4 py-2 bg-slate-600 rounded"
+                  onClick={() => setModalOpen(false)}>
             Đóng
           </button>
 
           {modalMode !== "view" && (
-            <button
-              className="px-4 py-2 bg-blue-600 rounded"
-              onClick={handleSave}
-            >
+            <button className="px-4 py-2 bg-blue-600 rounded"
+                    onClick={handleSave}>
               Lưu
             </button>
           )}
@@ -705,22 +642,68 @@ function ModalViewEdit({
   );
 }
 
+
 /* =========================================================================
-   FIELD INPUT
+   FIELD COMPONENTS
 =========================================================================== */
+
 function Field({ label, readOnly, value, onChange }) {
   return (
     <div>
-      <div className="text-xs mb-1">{label}</div>
+      <label className="text-xs mb-1 block">{label}</label>
 
       {readOnly ? (
-        <div className="p-2 bg-slate-700 rounded min-h-[36px]">{value || "—"}</div>
+        <div className="p-2 bg-slate-700 rounded">{value || "—"}</div>
       ) : (
         <input
           className="w-full p-2 bg-slate-700 rounded"
           value={value}
-          onChange={(e)=>onChange(e.target.value)}
+          onChange={(e) => onChange(e.target.value)}
         />
+      )}
+    </div>
+  );
+}
+
+function InputDateTime({ label, type, readOnly, value, onChange }) {
+  return (
+    <div>
+      <label className="text-xs mb-1 block">{label}</label>
+
+      {readOnly ? (
+        <div className="p-2 bg-slate-700 rounded">{value || "—"}</div>
+      ) : (
+        <input
+          type={type}
+          className="w-full p-2 bg-slate-700 rounded"
+          value={value || ""}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
+    </div>
+  );
+}
+
+function SelectField({ label, readOnly, value, onChange, options }) {
+  return (
+    <div>
+      <label className="text-xs mb-1 block">{label}</label>
+
+      {readOnly ? (
+        <div className="p-2 bg-slate-700 rounded">
+          {options.find((o) => o.value === value)?.label || "—"}
+        </div>
+      ) : (
+        <select
+          className="w-full p-2 bg-slate-700 rounded"
+          value={value || ""}
+          onChange={(e) => onChange(e.target.value)}
+        >
+          <option value="">— Chọn —</option>
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
       )}
     </div>
   );
