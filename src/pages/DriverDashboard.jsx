@@ -18,7 +18,7 @@ import {
 
 export default function DriverDashboard() {
   /* ============================================================
-       AUTH
+     AUTH
   ============================================================ */
   const driver = JSON.parse(localStorage.getItem("driver"));
   const driverId = driver?.id;
@@ -32,13 +32,14 @@ export default function DriverDashboard() {
   }
 
   /* ============================================================
-       STATES
+     STATES
   ============================================================ */
   const [tab, setTab] = useState("trips");
 
   const [assignments, setAssignments] = useState([]);
   const [groupedAssignments, setGroupedAssignments] = useState({});
   const [openDay, setOpenDay] = useState({});
+  const [selectedTripMonth, setSelectedTripMonth] = useState("");
 
   const [salaryList, setSalaryList] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState("");
@@ -47,7 +48,7 @@ export default function DriverDashboard() {
   const [modalTrip, setModalTrip] = useState(null);
 
   /* ============================================================
-       LOAD TRIPS
+     LOAD TRIPS
   ============================================================ */
   async function loadTrips() {
     const { data, error } = await supabase
@@ -67,6 +68,7 @@ export default function DriverDashboard() {
     if (!error && data) {
       setAssignments(data);
 
+      // group trips by date
       const grouped = data.reduce((acc, row) => {
         const d = row.bookings.date;
         if (!acc[d]) acc[d] = [];
@@ -75,11 +77,20 @@ export default function DriverDashboard() {
       }, {});
 
       setGroupedAssignments(grouped);
+
+      // derive months
+      const months = [
+        ...new Set(data.map((r) => r.bookings.date.slice(0, 7))),
+      ].sort(); // ASC
+
+      if (!selectedTripMonth && months.length > 0) {
+        setSelectedTripMonth(months[0]);
+      }
     }
   }
 
   /* ============================================================
-       LOAD SALARY (FULL DETAILS)
+     LOAD SALARY
   ============================================================ */
   async function loadSalary() {
     const { data, error } = await supabase
@@ -91,23 +102,14 @@ export default function DriverDashboard() {
         paid,
         paid_at,
         bookings (
-          id,
-          full_name,
-          phone,
-          date,
-          time,
-          route,
-          pickup_place,
-          dropoff_place,
-          total_price,
-          car_type,
-          note
+          id, full_name, phone, date, time, route,
+          pickup_place, dropoff_place, total_price, car_type, note
         )
       `
       )
       .eq("driver_id", driverId)
       .eq("paid", true)
-      .order("paid_at", { ascending: false });
+      .order("id", { ascending: false });
 
     if (!error && data) {
       setSalaryList(data);
@@ -119,8 +121,13 @@ export default function DriverDashboard() {
     loadSalary();
   }, []);
 
+  // Load salary again when switching tab
+  useEffect(() => {
+    if (tab === "salary") loadSalary();
+  }, [tab]);
+
   /* ============================================================
-       HELPERS
+     HELPERS
   ============================================================ */
   function formatDateVN(dateStr) {
     const d = new Date(dateStr);
@@ -128,11 +135,20 @@ export default function DriverDashboard() {
   }
 
   /* ============================================================
-       GROUP SALARY BY MONTH -> DAY
+     GROUP TRIPS BY MONTH
   ============================================================ */
+  const tripsByMonth = assignments.reduce((acc, item) => {
+    const m = item.bookings.date.slice(0, 7);
+    if (!acc[m]) acc[m] = [];
+    acc[m].push(item);
+    return acc;
+  }, {});
 
+  /* ============================================================
+     GROUP SALARY BY MONTH -> DAY
+  ============================================================ */
   const groupedByMonth = salaryList.reduce((acc, item) => {
-    const month = item.bookings.date.slice(0, 7); // YYYY-MM
+    const month = item.bookings.date.slice(0, 7);
     if (!acc[month]) acc[month] = [];
     acc[month].push(item);
     return acc;
@@ -161,17 +177,42 @@ export default function DriverDashboard() {
     );
   });
 
+  // Sort month ASC
+  const sortedMonths = Object.keys(groupedByMonth).sort();
+
   useEffect(() => {
-    const months = Object.keys(groupedByMonth);
-    if (months.length > 0 && !selectedMonth) {
-      setSelectedMonth(months[0]);
+    if (sortedMonths.length > 0 && !selectedMonth) {
+      setSelectedMonth(sortedMonths[0]);
     }
   }, [salaryList]);
 
-  const totalSalary = salaryList.reduce((s, x) => s + x.driver_pay, 0);
+  /* ============================================================
+     MONTH SUMMARY
+  ============================================================ */
+  const monthSummary = selectedMonth
+    ? (() => {
+        const days = groupedByMonth[selectedMonth] || [];
+        let revenue = 0;
+        let pay = 0;
+        let totalTrips = 0;
+
+        days.forEach((d) => {
+          revenue += d.revenue;
+          pay += d.driverPay;
+          totalTrips += d.trips.length;
+        });
+
+        return {
+          revenue,
+          pay,
+          totalTrips,
+          totalDays: days.length,
+        };
+      })()
+    : null;
 
   /* ============================================================
-       LOGOUT
+     LOGOUT
   ============================================================ */
   function logout() {
     localStorage.removeItem("driver");
@@ -179,135 +220,179 @@ export default function DriverDashboard() {
   }
 
   /* ============================================================
-       UI
+     UI
   ============================================================ */
   return (
     <div className="min-h-screen bg-slate-900 text-white p-6">
 
-      {/* HEADER */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Xin chào, {driver.full_name}</h1>
-          <p className="text-slate-400">Bảng điều khiển tài xế</p>
-        </div>
+      {/* ================= HEADER – GRAB STYLE ================= */}
+      <div className="mb-8">
+        <div className="flex items-center gap-4 bg-gradient-to-r from-emerald-600 to-emerald-500 p-4 rounded-2xl shadow-lg">
 
-        <button
-          onClick={logout}
-          className="flex items-center gap-2 px-4 py-2 bg-red-600 rounded-lg"
-        >
-          <HiLogout /> Đăng xuất
-        </button>
+          {/* AVATAR */}
+          <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-white shadow">
+            <img
+              src={driver.avatar_url}
+              alt="avatar"
+              className="w-full h-full object-cover"
+            />
+          </div>
+
+          {/* DRIVER INFO */}
+          <div className="flex-1">
+            <h1 className="text-xl font-bold text-white leading-tight">
+              Xin chào, {driver.full_name}
+            </h1>
+            <p className="text-white/80 text-sm">{driver.phone}</p>
+            <p className="text-white/60 text-xs">Bảng điều khiển tài xế</p>
+          </div>
+
+          {/* LOGOUT BUTTON */}
+          <button
+            onClick={logout}
+            className="px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm 
+              rounded-xl shadow-md active:scale-95 transition-all flex items-center gap-1"
+          >
+            <HiLogout className="text-lg" />
+            Thoát
+          </button>
+        </div>
       </div>
 
-      {/* TABS */}
+      {/* ===================== GRAB TABS ===================== */}
       <div className="flex gap-3 mb-6">
+
         <button
-          className={`px-4 py-2 rounded-lg ${
-            tab === "trips" ? "bg-blue-600" : "bg-slate-700"
-          }`}
+          className={`flex-1 px-4 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 shadow
+            ${
+              tab === "trips"
+                ? "bg-emerald-600 text-white shadow-lg"
+                : "bg-slate-800 text-slate-300"
+            }`}
           onClick={() => setTab("trips")}
         >
-          📅 Chuyến được phân công
+          📅 <span>Chuyến được phân công</span>
         </button>
 
         <button
-          className={`px-4 py-2 rounded-lg ${
-            tab === "salary" ? "bg-blue-600" : "bg-slate-700"
-          }`}
+          className={`flex-1 px-4 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 shadow
+            ${
+              tab === "salary"
+                ? "bg-emerald-600 text-white shadow-lg"
+                : "bg-slate-800 text-slate-300"
+            }`}
           onClick={() => setTab("salary")}
         >
-          💰 Bảng lương
+          💰 <span>Bảng lương</span>
         </button>
+
       </div>
 
       {/* ============================================================
-           TAB TRIPS
+           TAB: TRIPS + FILTER BY MONTH
       ============================================================ */}
       {tab === "trips" && (
         <div className="space-y-4">
-          {Object.keys(groupedAssignments).length === 0 && (
-            <div className="text-center text-slate-400">
-              Chưa có chuyến nào được phân công.
-            </div>
+
+          {/* FILTER TRIP BY MONTH */}
+          {Object.keys(tripsByMonth).length > 0 && (
+            <select
+              className="bg-slate-800 border border-slate-700 p-3 rounded-xl mb-4"
+              value={selectedTripMonth}
+              onChange={(e) => setSelectedTripMonth(e.target.value)}
+            >
+              {Object.keys(tripsByMonth)
+                .sort()
+                .map((m) => (
+                  <option key={m} value={m}>
+                    Tháng {m.slice(5, 7)}/{m.slice(0, 4)}
+                  </option>
+                ))}
+            </select>
           )}
 
-          {Object.entries(groupedAssignments).map(([date, trips]) => (
-            <div key={date} className="border border-slate-700 rounded-xl">
-              <button
-                className="w-full flex items-center justify-between p-4 bg-slate-800"
-                onClick={() =>
-                  setOpenDay((prev) => ({ ...prev, [date]: !prev[date] }))
-                }
-              >
-                <div className="flex items-center gap-3">
-                  <HiOutlineCalendar className="text-2xl text-red-300" />
-                  <span className="font-semibold text-lg">
-                    {formatDateVN(date)} — {trips.length} chuyến
-                  </span>
-                </div>
+          {/* RENDER TRIPS BY SELECTED MONTH */}
+          {selectedTripMonth &&
+            Object.entries(groupedAssignments)
+              .filter(([date]) => date.startsWith(selectedTripMonth))
+              .map(([date, trips]) => (
+                <div key={date} className="border border-slate-700 rounded-xl">
+                  <button
+                    className="w-full flex items-center justify-between p-4 bg-slate-800"
+                    onClick={() =>
+                      setOpenDay((prev) => ({ ...prev, [date]: !prev[date] }))
+                    }
+                  >
+                    <div className="flex items-center gap-3">
+                      <HiOutlineCalendar className="text-2xl text-red-300" />
+                      <span className="font-semibold text-lg">
+                        {formatDateVN(date)} — {trips.length} chuyến
+                      </span>
+                    </div>
 
-                {openDay[date] ? (
-                  <HiChevronUp className="text-xl" />
-                ) : (
-                  <HiChevronDown className="text-xl" />
-                )}
-              </button>
+                    {openDay[date] ? (
+                      <HiChevronUp className="text-xl" />
+                    ) : (
+                      <HiChevronDown className="text-xl" />
+                    )}
+                  </button>
 
-              {openDay[date] && (
-                <div className="p-4 space-y-4 bg-slate-900">
-                  {trips.map((a) => {
-                    const b = a.bookings;
-                    return (
-                      <div
-                        key={a.id}
-                        className="p-4 rounded-lg bg-slate-800 border border-slate-700 cursor-pointer hover:bg-slate-700"
-                        onClick={() => setModalTrip(b)}
-                      >
-                        <div className="flex justify-between">
-                          <div>
-                            <div className="text-lg font-semibold">{b.route}</div>
-                            <div className="text-slate-400 text-sm">
-                              {b.time} • {b.total_price.toLocaleString("vi-VN")} đ
+                  {openDay[date] && (
+                    <div className="p-4 space-y-4 bg-slate-900">
+                      {trips.map((a) => {
+                        const b = a.bookings;
+                        return (
+                          <div
+                            key={a.id}
+                            className="p-4 rounded-lg bg-slate-800 border border-slate-700 cursor-pointer hover:bg-slate-700"
+                            onClick={() => setModalTrip(b)}
+                          >
+                            <div className="flex justify-between">
+                              <div>
+                                <div className="text-lg font-semibold">{b.route}</div>
+                                <div className="text-slate-400 text-sm">
+                                  {b.time} •{" "}
+                                  {b.total_price.toLocaleString("vi-VN")} đ
+                                </div>
+                              </div>
+                              <span
+                                className={`px-2 py-1 rounded text-xs ${
+                                  a.status === "assigned"
+                                    ? "bg-yellow-600"
+                                    : a.status === "completed"
+                                    ? "bg-green-600"
+                                    : "bg-slate-600"
+                                }`}
+                              >
+                                {a.status}
+                              </span>
                             </div>
                           </div>
-                          <span
-                            className={`px-2 py-1 rounded text-xs ${
-                              a.status === "assigned"
-                                ? "bg-yellow-600"
-                                : a.status === "completed"
-                                ? "bg-green-600"
-                                : "bg-slate-600"
-                            }`}
-                          >
-                            {a.status}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          ))}
+              ))}
         </div>
       )}
 
       {/* ============================================================
-           TAB SALARY
+           TAB: SALARY
       ============================================================ */}
       {tab === "salary" && (
-        <div>
+        <div className="space-y-6">
 
-          <h2 className="text-2xl font-bold mb-4">💰 Lương theo tháng</h2>
+          <h2 className="text-2xl font-bold">💰 Lương theo tháng</h2>
 
           {/* SELECT MONTH */}
-          {Object.keys(groupedByMonth).length > 0 ? (
+          {sortedMonths.length > 0 ? (
             <select
-              className="bg-slate-800 border border-slate-700 p-3 rounded-xl mb-6"
+              className="bg-slate-800 border border-slate-700 p-3 rounded-xl mb-3"
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
             >
-              {Object.keys(groupedByMonth).map((m) => (
+              {sortedMonths.map((m) => (
                 <option key={m} value={m}>
                   Tháng {m.slice(5, 7)}/{m.slice(0, 4)}
                 </option>
@@ -317,10 +402,41 @@ export default function DriverDashboard() {
             <div className="text-slate-400">Chưa có lương được duyệt.</div>
           )}
 
-          {/* TABLE */}
+          {/* SUMMARY CARD */}
+          {monthSummary && (
+            <div className="p-5 rounded-xl bg-gradient-to-br from-slate-800 to-slate-700 border border-slate-600 shadow-lg text-lg">
+              <h3 className="text-xl font-bold mb-3">
+                Tổng lương tháng{" "}
+                <span className="text-blue-400">
+                  {selectedMonth.slice(5, 7)}/{selectedMonth.slice(0, 4)}
+                </span>
+              </h3>
+
+              <div className="space-y-2">
+                <p>
+                  <strong>Doanh thu: </strong>
+                  {monthSummary.revenue.toLocaleString("vi-VN")} đ
+                </p>
+
+                <p className="text-green-400 font-semibold">
+                  <strong>Tài xế nhận: </strong>
+                  {monthSummary.pay.toLocaleString("vi-VN")} đ
+                </p>
+
+                <p>
+                  <strong>Số chuyến đã duyệt:</strong> {monthSummary.totalTrips}
+                </p>
+
+                <p>
+                  <strong>Số ngày có chuyến:</strong> {monthSummary.totalDays}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* SALARY TABLE */}
           {selectedMonth && (
             <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
-
               <table className="w-full text-left">
                 <thead className="bg-slate-700 text-slate-300">
                   <tr>
@@ -461,6 +577,7 @@ export default function DriverDashboard() {
           </div>
         </div>
       )}
+
     </div>
   );
 }
