@@ -67,7 +67,7 @@ export default function DriversAdmin() {
       phone: "",
       email: "",
       birthdate: "",
-      license_number: "",
+      personal_number: "",
       address: "",
       avatar_url: "",
       base_salary: 0,
@@ -151,7 +151,7 @@ export default function DriversAdmin() {
             </div>
 
             <div className="text-sm">
-              🚗 GPLX: {d.license_number || "—"}
+              🚗 GPLX: {d.personal_number || "—"}
             </div>
 
             <div className="text-sm text-green-400 font-semibold mt-2">
@@ -201,7 +201,7 @@ export default function DriversAdmin() {
               <Field label="Số điện thoại" readOnly={modalMode === "view"} value={form.phone} onChange={(v)=>setForm({...form,phone:v})}/>
               <Field label="Email" readOnly={modalMode === "view"} value={form.email} onChange={(v)=>setForm({...form,email:v})}/>
               <Field label="Ngày sinh" type="date" readOnly={modalMode === "view"} value={form.birthdate} onChange={(v)=>setForm({...form,birthdate:v})}/>
-              <Field label="GPLX" readOnly={modalMode === "view"} value={form.license_number} onChange={(v)=>setForm({...form,license_number:v})}/>
+              <Field label="GPLX" readOnly={modalMode === "view"} value={form.personal_number} onChange={(v)=>setForm({...form,personal_number:v})}/>
               <Field label="Địa chỉ" readOnly={modalMode === "view"} value={form.address} onChange={(v)=>setForm({...form,address:v})}/>
               <Field label="Lương cứng" type="number" readOnly={modalMode === "view"} value={form.base_salary} onChange={(v)=>setForm({...form,base_salary:Number(v)})}/>
               <Field label="Hoa hồng (%)" type="number" readOnly={modalMode === "view"} value={form.commission_rate} onChange={(v)=>setForm({...form,commission_rate:Number(v)})}/>
