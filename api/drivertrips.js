@@ -13,7 +13,7 @@ export async function GET(req) {
 
   const supabase = createClient(
     import.meta.env.VITE_SUPABASE_URL,
-    import.meta.env.VITE_SUPABASE_SERVICE_ROLE
+    import.meta.env.VITE_SUPABASE_ANON_KEY
   );
 
   const { data, error } = await supabase
