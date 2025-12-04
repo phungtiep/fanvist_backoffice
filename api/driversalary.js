@@ -20,9 +20,15 @@ export async function GET(req) {
     .from("driver_assignments")
     .select(
       `
-      id, driver_pay, paid, paid_at,
-      bookings:booking_id (*)
-    `
+        id,
+        driver_pay,
+        paid,
+        paid_at,
+        bookings (
+          id, full_name, phone, date, time, route,
+          pickup_place, dropoff_place, total_price, car_type, note
+        )
+      `
     )
     .eq("driver_id", driver_id)
     .eq("paid", true)

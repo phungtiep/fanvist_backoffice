@@ -20,9 +20,12 @@ export async function GET(req) {
     .from("driver_assignments")
     .select(
       `
-      id, status, driver_pay,
-      bookings:booking_id (*)
-    `
+        id, status, driver_pay,
+        bookings (
+          id, full_name, phone, date, time, route,
+          pickup_place, dropoff_place, total_price, car_type, note
+        )
+      `
     )
     .eq("driver_id", driver_id)
     .order("id", { ascending: true });
