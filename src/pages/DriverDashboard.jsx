@@ -56,7 +56,7 @@ export default function DriverDashboard() {
       .select(
         `
         id, status, driver_pay,
-        bookings (
+        bookings:booking_id (
           id, full_name, phone, date, time, route,
           pickup_place, dropoff_place, total_price, car_type, note
         )
