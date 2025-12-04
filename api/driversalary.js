@@ -16,23 +16,15 @@ export async function GET(req) {
     process.env.SUPABASE_ANON_KEY
   );
 
-  const { data, error } = await supabase
-    .from("driver_assignments")
-    .select(
-      `
-        id,
-        driver_pay,
-        paid,
-        paid_at,
-        bookings (
-          id, full_name, phone, date, time, route,
-          pickup_place, dropoff_place, total_price, car_type, note
-        )
-      `
-    )
-    .eq("driver_id", driver_id)
-    .eq("paid", true)
-    .order("id", { ascending: false });
+  const { data, error } = await supabase.rpc("get_driver_salary", {
+    p_driver_id: driver_id,
+  });
+
+  if (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+    });
+  }
 
   return new Response(JSON.stringify(data ?? []), {
     headers: { "Content-Type": "application/json" }
