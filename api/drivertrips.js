@@ -18,7 +18,7 @@ export async function GET(req) {
 
   const { data, error } = await supabase.rpc(
     "get_driver_assignments",
-    { p_driver_id: driverId }
+    { p_driver_id: driver_id }
   );
 
   return new Response(JSON.stringify(data ?? []), {
