@@ -25,7 +25,7 @@ export default function VehiclesAdmin() {
 
   // Load drivers
   async function loadDrivers() {
-    const { data } = await supabase.from("drivers").select("*").order("name");
+    const { data } = await supabase.from("drivers").select("*").order("full_name");
     setDrivers(data || []);
   }
 
@@ -181,7 +181,7 @@ export default function VehiclesAdmin() {
 
             <div className="mt-1 text-sm">
               <strong>Tài xế:</strong>{" "}
-              {drivers.find((d) => d.id === v.driver_id)?.name || "—"}
+              {drivers.find((d) => d.id === v.driver_id)?.full_name || "—"}
             </div>
 
             <div className="flex justify-end gap-3 mt-4">
@@ -246,7 +246,7 @@ export default function VehiclesAdmin() {
                 >
                   <option value="">— Không có —</option>
                   {drivers.map((d) => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
+                    <option key={d.id} value={d.id}>{d.full_name}</option>
                   ))}
                 </select>
               </div>
