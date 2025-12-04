@@ -51,7 +51,7 @@ export default function DriverDashboard() {
   ============================================================ */
   async function loadTrips() {
     try {
-      const res = await fetch(`/api/driver/trips?driver_id=${driverId}`);
+      const res = await fetch(`/api/drivertrips?driver_id=${driverId}`);
       const json = await res.json();
 
       if (!Array.isArray(json)) {
@@ -90,7 +90,7 @@ export default function DriverDashboard() {
   ============================================================ */
   async function loadSalary() {
     try {
-      const res = await fetch(`/api/driver/salary?driver_id=${driverId}`);
+      const res = await fetch(`/api/driversalary?driver_id=${driverId}`);
       const json = await res.json();
 
       if (!Array.isArray(json)) {
