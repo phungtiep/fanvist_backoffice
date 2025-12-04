@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink, Link, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { HiMenu, HiX } from "react-icons/hi";
 import { supabase } from "../lib/supabase";
 
@@ -15,7 +15,7 @@ export default function AdminLayout({ children }) {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col lg:flex-row">
 
-      {/* ⭐ TOP BAR MOBILE */}
+      {/* ⭐ MOBILE TOP BAR */}
       <div className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/60 backdrop-blur">
         <button onClick={() => setOpenMenu(true)}>
           <HiMenu size={28} />
@@ -24,27 +24,27 @@ export default function AdminLayout({ children }) {
         <div className="w-8" />
       </div>
 
-      {/* ⭐ SIDEBAR DESKTOP */}
+      {/* ⭐ DESKTOP SIDEBAR */}
       <aside className="hidden lg:flex lg:flex-col w-64 border-r border-slate-800 bg-slate-950">
         <Sidebar onLogout={handleLogout} />
       </aside>
 
-      {/* ⭐ SIDEBAR MOBILE – SLIDE-IN */}
+      {/* ⭐ BACKDROP MOBILE */}
       {openMenu && (
         <div
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden animate-fadeIn"
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden"
           onClick={() => setOpenMenu(false)}
-        />
+        ></div>
       )}
 
+      {/* ⭐ MOBILE SIDEBAR */}
       <aside
-        className={`
-          fixed left-0 top-0 w-64 h-full bg-slate-900 z-50 transform 
+        className={`fixed left-0 top-0 w-64 h-full bg-slate-900 z-50 transform 
           transition-transform duration-300 ease-out lg:hidden shadow-xl 
           ${openMenu ? "translate-x-0" : "-translate-x-full"}
         `}
       >
-        {/* header mobile */}
+        {/* Header mobile */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700 bg-slate-900">
           <span className="text-lg font-semibold">Menu</span>
           <button onClick={() => setOpenMenu(false)}>
@@ -52,7 +52,13 @@ export default function AdminLayout({ children }) {
           </button>
         </div>
 
-        <Sidebar onLogout={handleLogout} closeMenu={() => setOpenMenu(false)} />
+        {/* ⭐ FIX: thêm scroll + auto close */}
+        <div className="h-full overflow-y-auto">
+          <Sidebar
+            onLogout={handleLogout}
+            closeMenu={() => setOpenMenu(false)}
+          />
+        </div>
       </aside>
 
       {/* ⭐ MAIN CONTENT */}
@@ -64,107 +70,61 @@ export default function AdminLayout({ children }) {
 }
 
 /* ==========================================================================================
-   ⭐ SIDEBAR COMPONENT – dùng chung cho cả mobile & desktop
+   ⭐ SIDEBAR — dùng chung
    ========================================================================================== */
 
 function Sidebar({ onLogout, closeMenu }) {
-  const handleClick = (callback) => {
-    if (closeMenu) closeMenu();
-    if (callback) callback();
+  const handleClick = () => {
+    if (closeMenu) closeMenu(); // ⭐ FIX: auto close on mobile
   };
+
+  const linkClass = ({ isActive }) =>
+    `block px-3 py-2 rounded text-sm transition 
+     ${isActive ? "bg-slate-800 text-white" : "text-slate-300 hover:bg-slate-900"}
+    `;
 
   return (
     <nav className="flex flex-col p-4 gap-2">
       <div className="text-xl font-semibold mb-2">Fanvist Backoffice</div>
 
-      <NavLink
-        to="/admin/bookings"
-        onClick={() => handleClick()}
-        className={({ isActive }) =>
-          `block px-3 py-2 rounded text-sm transition ${isActive ? "bg-slate-800 text-white" : "text-slate-300 hover:bg-slate-900"
-          }`
-        }
-      >
-      Quản lý Booking
+      <NavLink to="/admin/bookings" className={linkClass} onClick={handleClick}>
+        Quản lý Booking
       </NavLink>
 
-      <NavLink
-        to="/admin/routes"
-        onClick={() => handleClick()}
-        className={({ isActive }) =>
-          `block px-3 py-2 rounded text-sm transition ${isActive ? "bg-slate-800 text-white" : "text-slate-300 hover:bg-slate-900"
-          }`
-        }
-      >
-      Tuyến đường & Giá
+      <NavLink to="/admin/routes" className={linkClass} onClick={handleClick}>
+        Tuyến đường & Giá
       </NavLink>
 
-      <NavLink
-        to="/admin/cars"
-        onClick={() => handleClick()}
-        className={({ isActive }) =>
-          `block px-3 py-2 rounded text-sm transition ${isActive ? "bg-slate-800 text-white" : "text-slate-300 hover:bg-slate-900"
-          }`
-        }
-      >Quản lý xe
+      <NavLink to="/admin/cars" className={linkClass} onClick={handleClick}>
+        Quản lý xe
       </NavLink>
-      <NavLink
-        to="/admin/drivers"
-        className={({ isActive }) =>
-          `block px-3 py-2 rounded-lg text-sm ${isActive ? "bg-slate-800 text-white" : "text-slate-300 hover:bg-slate-900"
-          }`
-        }
-      >
+
+      <NavLink to="/admin/drivers" className={linkClass} onClick={handleClick}>
         Quản lý tài xế
       </NavLink>
-      <NavLink
-        to="/admin/vehicles"
-        className={({ isActive }) =>
-          `block px-3 py-2 rounded-lg text-sm ${isActive ? "bg-slate-800 text-white" : "text-slate-300 hover:bg-slate-900"
-          }`
-        }
-      >
+
+      <NavLink to="/admin/vehicles" className={linkClass} onClick={handleClick}>
         Quản lý xe công ty
       </NavLink>
-      <NavLink
-        to="/admin/schedule"
-        className={({ isActive }) =>
-          `block px-3 py-2 rounded-lg text-sm ${isActive
-            ? "bg-slate-800 text-white"
-            : "text-slate-300 hover:bg-slate-900"
-          }`
-        }
-      >
+
+      <NavLink to="/admin/schedule" className={linkClass} onClick={handleClick}>
         Calendar phân công
       </NavLink>
-      <NavLink
-        to="/admin/driver-salary"
-        className={({ isActive }) =>
-          `block px-3 py-2 rounded-lg text-sm ${isActive
-            ? "bg-slate-800 text-white"
-            : "text-slate-300 hover:bg-slate-900"
-          }`
-        }
-      >
-       Lương tài xế
-      </NavLink>
-      <NavLink
-        to="/admin/revenue"
-        className={({ isActive }) =>
-          `block px-3 py-2 rounded-lg text-sm ${isActive
-            ? "bg-slate-800 text-white"
-            : "text-slate-300 hover:bg-slate-900"
-          }`
-        }
-      >
-       Báo cáo doanh thu
+
+      <NavLink to="/admin/driver-salary" className={linkClass} onClick={handleClick}>
+        Lương tài xế
       </NavLink>
 
+      <NavLink to="/admin/revenue" className={linkClass} onClick={handleClick}>
+        Báo cáo doanh thu
+      </NavLink>
 
-
-
+      {/* LOGOUT */}
       <button
-        onClick={onLogout}
+        onClick={() => {
+          handleClick();
+          onLogout();
+        }}
         className="mt-6 px-4 py-2 text-left bg-slate-800 rounded hover:bg-slate-700 transition text-sm"
       >
         Đăng xuất

@@ -159,7 +159,10 @@ export default function BookingsAdmin() {
     if (!confirm("Bạn có chắc muốn xóa booking?")) return;
 
     setLoadingDelete(true);
-    const { error } = await supabase.from("bookings").delete().eq("id", id);
+    const { error } = await supabase.rpc("delete_booking_cascade", {
+      p_booking_id: id,
+    });
+
     setLoadingDelete(false);
 
     if (error) {
@@ -509,19 +512,19 @@ function ModalViewEdit({
 
         <h2 className="text-xl font-bold mb-4">
           {modalMode === "add" ? "Thêm Booking" :
-           modalMode === "edit" ? "Sửa Booking" : "Chi tiết Booking"}
+            modalMode === "edit" ? "Sửa Booking" : "Chi tiết Booking"}
         </h2>
 
         <div className="space-y-3 text-sm">
 
           <Field label="Họ tên" readOnly={readOnly} value={form.full_name}
-                 onChange={v => setForm({ ...form, full_name: v })} />
+            onChange={v => setForm({ ...form, full_name: v })} />
 
           <Field label="Số điện thoại" readOnly={readOnly} value={form.phone}
-                 onChange={v => setForm({ ...form, phone: v })} />
+            onChange={v => setForm({ ...form, phone: v })} />
 
           <Field label="Email" readOnly={readOnly} value={form.email}
-                 onChange={v => setForm({ ...form, email: v })} />
+            onChange={v => setForm({ ...form, email: v })} />
 
           {/* TUYẾN ĐƯỜNG */}
           <SelectField
@@ -545,10 +548,10 @@ function ModalViewEdit({
           />
 
           <Field label="Điểm đón" readOnly={readOnly} value={form.pickup_place}
-                 onChange={v => setForm({ ...form, pickup_place: v })} />
+            onChange={v => setForm({ ...form, pickup_place: v })} />
 
           <Field label="Điểm trả" readOnly={readOnly} value={form.dropoff_place}
-                 onChange={v => setForm({ ...form, dropoff_place: v })} />
+            onChange={v => setForm({ ...form, dropoff_place: v })} />
 
           {/* NGÀY & GIỜ */}
           <InputDateTime
@@ -609,29 +612,29 @@ function ModalViewEdit({
           />
 
           <Field label="Số người lớn" readOnly={readOnly} value={form.adult_count}
-                 onChange={(v) => setForm({ ...form, adult_count: Number(v) })} />
+            onChange={(v) => setForm({ ...form, adult_count: Number(v) })} />
 
           <Field label="Số trẻ em" readOnly={readOnly} value={form.child_count}
-                 onChange={(v) => setForm({ ...form, child_count: Number(v) })} />
+            onChange={(v) => setForm({ ...form, child_count: Number(v) })} />
 
           <Field label="Tổng tiền" readOnly={readOnly} value={form.total_price}
-                 onChange={(v) => setForm({ ...form, total_price: Number(v) })} />
+            onChange={(v) => setForm({ ...form, total_price: Number(v) })} />
 
           <Field label="Ghi chú" readOnly={readOnly} value={form.note}
-                 onChange={(v) => setForm({ ...form, note: v })} />
+            onChange={(v) => setForm({ ...form, note: v })} />
 
         </div>
 
         {/* BUTTONS */}
         <div className="flex justify-end gap-2 mt-5">
           <button className="px-4 py-2 bg-slate-600 rounded"
-                  onClick={() => setModalOpen(false)}>
+            onClick={() => setModalOpen(false)}>
             Đóng
           </button>
 
           {modalMode !== "view" && (
             <button className="px-4 py-2 bg-blue-600 rounded"
-                    onClick={handleSave}>
+              onClick={handleSave}>
               Lưu
             </button>
           )}

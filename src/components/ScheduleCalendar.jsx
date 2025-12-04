@@ -21,27 +21,39 @@ export default function ScheduleCalendar() {
     const [selectedBooking, setSelectedBooking] = useState(null);
     const [saving, setSaving] = useState(false);
 
+    /* ============================================================
+       HELPERS
+    ============================================================ */
+
+    // Format chuẩn giờ VN, không bị lệch UTC
+    function formatLocalDate(date) {
+        return [
+            date.getFullYear(),
+            String(date.getMonth() + 1).padStart(2, "0"),
+            String(date.getDate()).padStart(2, "0")
+        ].join("-");
+    }
+
+    function formatDateVN(dateStr) {
+        const d = new Date(dateStr);
+        return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+    }
+
     function showToast(message, type = "success") {
         setToast({ message, type });
         setTimeout(() => setToast(null), 2500);
     }
 
-    function formatDateVN(dateStr) {
-        const d = new Date(dateStr);
-        const dd = `${d.getDate()}`.padStart(2, "0");
-        const mm = `${d.getMonth() + 1}`.padStart(2, "0");
-        const yyyy = d.getFullYear();
-        return `${dd}/${mm}/${yyyy}`;
-    }
-
     function getMonthRange(date) {
         const y = date.getFullYear();
         const m = date.getMonth();
+
         const start = new Date(y, m, 1);
         const end = new Date(y, m + 1, 0);
+
         return {
-            from: start.toISOString().split("T")[0],
-            to: end.toISOString().split("T")[0],
+            from: formatLocalDate(start),
+            to: formatLocalDate(end),
             start,
             end,
         };
@@ -60,6 +72,29 @@ export default function ScheduleCalendar() {
 
         return days;
     }
+
+    /* ============================================================
+       MULTI-DAY EVENT FIX — không dùng toISOString()
+    ============================================================ */
+
+    function expandDates(b) {
+        const start = new Date(b.date);
+        const end = b.return_date ? new Date(b.return_date) : start;
+
+        const arr = [];
+        let cur = new Date(start);
+
+        while (cur <= end) {
+            arr.push(formatLocalDate(cur));
+            cur.setDate(cur.getDate() + 1);
+        }
+
+        return arr;
+    }
+
+    /* ============================================================
+       LOADERS
+    ============================================================ */
 
     async function loadDriversAndVehicles() {
         const [{ data: dDrivers }, { data: dVehicles }] = await Promise.all([
@@ -102,6 +137,10 @@ export default function ScheduleCalendar() {
         loadBookings();
     }, [currentMonth]);
 
+    /* ============================================================
+       UI HELPERS
+    ============================================================ */
+
     function getDriverName(id) {
         if (!id) return "Chưa phân công";
         const d = drivers.find((x) => x.id === id);
@@ -112,7 +151,6 @@ export default function ScheduleCalendar() {
         if (!id) return "Chưa gán xe";
         const v = vehicles.find((x) => x.id === id);
         if (!v) return "Không rõ xe";
-
         return [v.plate_number, v.brand, v.model].filter(Boolean).join(" • ");
     }
 
@@ -124,40 +162,66 @@ export default function ScheduleCalendar() {
         });
     }
 
+    /* ============================================================
+       SAVE ASSIGN (INSERT OR UPDATE)
+    ============================================================ */
+
     async function handleSaveAssign() {
         if (!selectedBooking) return;
         setSaving(true);
 
+        const bookingId = selectedBooking.id;
         const driverId = selectedBooking.driver_id || null;
         const vehicleId = selectedBooking.vehicle_id || null;
 
-        let commission = 70;
+        const { data: existing } = await supabase
+            .from("driver_assignments")
+            .select("*")
+            .eq("booking_id", bookingId)
+            .maybeSingle();
 
+        let commission = 70;
         if (driverId) {
             const { data: info } = await supabase
                 .from("drivers")
                 .select("commission_percent")
                 .eq("id", driverId)
                 .single();
-
             if (info?.commission_percent) commission = info.commission_percent;
         }
 
         const total = selectedBooking.total_price || 0;
-        const driver_pay = Math.round(total * (commission / 100));
+        const driver_pay = driverId ? Math.round(total * (commission / 100)) : 0;
         const company_profit = total - driver_pay;
 
-        const { error: assignErr } = await supabase.from("driver_assignments").insert({
-            booking_id: selectedBooking.id,
-            driver_id: driverId,
-            vehicle_id: vehicleId,
-            driver_pay,
-            company_profit,
-            status: "assigned",
-        });
+        let error;
 
-        if (assignErr) {
-            console.error(assignErr);
+        if (!existing) {
+            const res = await supabase.from("driver_assignments").insert({
+                booking_id: bookingId,
+                driver_id: driverId,
+                vehicle_id: vehicleId,
+                driver_pay,
+                company_profit,
+                status: driverId ? "assigned" : "unassigned",
+            });
+            error = res.error;
+        } else {
+            const res = await supabase
+                .from("driver_assignments")
+                .update({
+                    driver_id: driverId,
+                    vehicle_id: vehicleId,
+                    driver_pay,
+                    company_profit,
+                    status: driverId ? "assigned" : "unassigned",
+                })
+                .eq("booking_id", bookingId);
+            error = res.error;
+        }
+
+        if (error) {
+            console.error(error);
             showToast("Không thể lưu phân công!", "error");
             setSaving(false);
             return;
@@ -166,13 +230,17 @@ export default function ScheduleCalendar() {
         await supabase
             .from("bookings")
             .update({ driver_id: driverId, vehicle_id: vehicleId })
-            .eq("id", selectedBooking.id);
+            .eq("id", bookingId);
 
         setSaving(false);
         setSelectedBooking(null);
-        showToast("Đã phân công!");
+        showToast("Đã lưu phân công!");
         loadBookings();
     }
+
+    /* ============================================================
+       NAVIGATION MONTH
+    ============================================================ */
 
     function goPrevMonth() {
         setCurrentMonth((prev) => {
@@ -191,25 +259,41 @@ export default function ScheduleCalendar() {
     }
 
     const t = new Date();
-    const todayStr = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
-
+    const todayStr = formatLocalDate(t);
     const days = buildCalendarDays(currentMonth);
 
-    const bookingsByDate = bookings.reduce((acc, b) => {
-        if (!acc[b.date]) acc[b.date] = [];
-        acc[b.date].push(b);
-        return acc;
-    }, {});
+    /* ============================================================
+       BOOKING MAPPING (multi-day support)
+    ============================================================ */
+
+    const bookingsByDate = {};
+
+    bookings.forEach((b) => {
+        const expand = expandDates(b);
+
+        expand.forEach((dayStr) => {
+            if (!bookingsByDate[dayStr]) bookingsByDate[dayStr] = [];
+            bookingsByDate[dayStr].push({
+                ...b,
+                isStart: dayStr === b.date,
+                isEnd: b.return_date ? dayStr === b.return_date : true,
+                multi: expand.length > 1,
+            });
+        });
+    });
 
     const monthLabel = currentMonth.toLocaleDateString("vi-VN", {
         month: "long",
         year: "numeric",
     });
 
+    /* ============================================================
+       UI RENDER
+    ============================================================ */
+
     return (
         <div className="p-4 text-slate-100 w-full mx-auto pb-20 bg-[#0a0f1a] min-h-screen">
 
-            {/* BACK BUTTON */}
             <button
                 onClick={() => navigate(-1)}
                 className="mb-4 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm flex items-center gap-2"
@@ -234,7 +318,6 @@ export default function ScheduleCalendar() {
             {/* CALENDAR GRID */}
             <div className="grid grid-cols-7 bg-[#0a0d1a] rounded-xl overflow-hidden border border-slate-700 w-full">
 
-                {/* HEADER */}
                 {["CN", "T2", "T3", "T4", "T5", "T6", "T7"].map((d) => (
                     <div
                         key={d}
@@ -244,7 +327,6 @@ export default function ScheduleCalendar() {
                     </div>
                 ))}
 
-                {/* DAYS */}
                 {days.map((day, idx) => {
                     if (!day)
                         return (
@@ -254,48 +336,46 @@ export default function ScheduleCalendar() {
                             />
                         );
 
-                    const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+                    const dateStr = formatLocalDate(day);
                     const list = bookingsByDate[dateStr] || [];
                     const isToday = dateStr === todayStr;
 
                     return (
                         <div
                             key={dateStr}
-                            className={`
-                border-r border-b border-slate-700 
-                px-2 pt-2 relative
-                h-[100px]           /* MOBILE fixed */
-                sm:h-auto sm:min-h-[180px]   /* DESKTOP auto height — NO SCROLL */
-                bg-[#0c1322]
-              `}
+                            className="
+                                border-r border-b border-slate-700 
+                                px-2 pt-2 relative
+                                h-auto
+                                sm:min-h-[200px]
+                                bg-[#0c1322]
+                            "
                         >
-                            {/* DATE CIRCLE */}
                             <div className="flex items-center justify-between mb-1">
                                 <div
                                     className={`
-                    w-7 h-7 flex items-center justify-center rounded-full text-xs
-                    ${isToday ? "bg-blue-500 text-white" : "text-slate-300"}
-                  `}
+                                        w-7 h-7 flex items-center justify-center rounded-full text-xs
+                                        ${isToday ? "bg-blue-500 text-white" : "text-slate-300"}
+                                    `}
                                 >
                                     {day.getDate()}
                                 </div>
-
-                                {list.length > 0 && (
-                                    <span className="text-[10px] text-slate-400">{list.length}</span>
-                                )}
                             </div>
 
-                            {/* EVENTS */}
                             <div className="space-y-1">
+
                                 {list.map((b) => (
                                     <button
                                         key={b.id}
                                         onClick={() => openAssignModal(b)}
-                                        className="
-                      w-full rounded bg-slate-800/80 
-                      hover:bg-slate-700/80 px-2 py-1 
-                      text-[10px] border border-slate-700/70 text-left
-                    "
+                                        className={`
+                                            w-full px-2 py-1 text-[10px] border border-slate-700/70 text-left
+                                            rounded 
+                                            ${b.multi ? "bg-blue-900/50" : "bg-slate-800/80"}
+                                            ${b.isStart ? "rounded-l-lg border-l-4 border-l-emerald-400" : ""}
+                                            ${b.isEnd ? "rounded-r-lg border-r-4 border-r-emerald-400" : ""}
+                                            hover:bg-slate-700/80
+                                        `}
                                     >
                                         <div className="flex items-center gap-1">
                                             <span className="text-emerald-300 font-semibold">{b.time}</span>
@@ -330,9 +410,9 @@ export default function ScheduleCalendar() {
             {toast && (
                 <div
                     className={`
-            fixed top-5 right-5 px-4 py-2 rounded shadow-lg text-white z-50
-            ${toast.type === "success" ? "bg-green-600" : "bg-red-600"}
-          `}
+                        fixed top-5 right-5 px-4 py-2 rounded shadow-lg text-white z-50
+                        ${toast.type === "success" ? "bg-green-600" : "bg-red-600"}
+                    `}
                 >
                     {toast.message}
                 </div>
@@ -360,8 +440,9 @@ export default function ScheduleCalendar() {
                             </div>
 
                             <div className="text-slate-400 text-sm mt-1">
-                                Ngày đi: {formatDateVN(selectedBooking.date)} • Giờ:{" "}
-                                {selectedBooking.time}
+                                Đi: {formatDateVN(selectedBooking.date)} 
+                                {selectedBooking.return_date ? ` • Về: ${formatDateVN(selectedBooking.return_date)}` : ""}
+                                • Giờ: {selectedBooking.time}
                             </div>
                         </div>
 
@@ -369,9 +450,7 @@ export default function ScheduleCalendar() {
                             <label className="text-sm text-slate-300">Tài xế</label>
                             <select
                                 value={selectedBooking.driver_id}
-                                onChange={(e) =>
-                                    setSelectedBooking({ ...selectedBooking, driver_id: e.target.value })
-                                }
+                                onChange={(e) => setSelectedBooking({ ...selectedBooking, driver_id: e.target.value })}
                                 className="w-full p-2 rounded bg-[#0c1322] border border-slate-600 mt-1"
                             >
                                 <option value="">— Chưa phân công —</option>
@@ -387,9 +466,7 @@ export default function ScheduleCalendar() {
                             <label className="text-sm text-slate-300">Xe</label>
                             <select
                                 value={selectedBooking.vehicle_id}
-                                onChange={(e) =>
-                                    setSelectedBooking({ ...selectedBooking, vehicle_id: e.target.value })
-                                }
+                                onChange={(e) => setSelectedBooking({ ...selectedBooking, vehicle_id: e.target.value })}
                                 className="w-full p-2 rounded bg-[#0c1322] border border-slate-600 mt-1"
                             >
                                 <option value="">— Chưa gán xe —</option>
@@ -419,6 +496,7 @@ export default function ScheduleCalendar() {
                     </div>
                 </div>
             )}
+
         </div>
     );
 }
