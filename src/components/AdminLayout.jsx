@@ -7,9 +7,36 @@ export default function AdminLayout({ children }) {
   const navigate = useNavigate();
   const [openMenu, setOpenMenu] = useState(false);
 
+  /* ============================================================
+     ⭐ LOGOUT — XÓA FULL CACHE (desktop + mobile)
+  ============================================================ */
   const handleLogout = async () => {
+    // 1) Supabase logout
     await supabase.auth.signOut();
+
+    // 2) Clear storages
+    localStorage.clear();
+    sessionStorage.clear();
+
+    // 3) Clear Service Worker Cache
+    if (window.caches) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((key) => caches.delete(key)));
+    }
+
+    // 4) Clear IndexedDB
+    if (window.indexedDB) {
+      try {
+        const dbs = await window.indexedDB.databases();
+        dbs.forEach((db) => {
+          window.indexedDB.deleteDatabase(db.name);
+        });
+      } catch (e) {}
+    }
+
+    // 5) Force reload
     navigate("/admin/login");
+    setTimeout(() => window.location.reload(true), 200);
   };
 
   return (
@@ -29,7 +56,7 @@ export default function AdminLayout({ children }) {
         <Sidebar onLogout={handleLogout} />
       </aside>
 
-      {/* ⭐ BACKDROP MOBILE */}
+      {/* ⭐ MOBILE BACKDROP */}
       {openMenu && (
         <div
           className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden"
@@ -41,10 +68,8 @@ export default function AdminLayout({ children }) {
       <aside
         className={`fixed left-0 top-0 w-64 h-full bg-slate-900 z-50 transform 
           transition-transform duration-300 ease-out lg:hidden shadow-xl 
-          ${openMenu ? "translate-x-0" : "-translate-x-full"}
-        `}
+          ${openMenu ? "translate-x-0" : "-translate-x-full"}`}
       >
-        {/* Header mobile */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700 bg-slate-900">
           <span className="text-lg font-semibold">Menu</span>
           <button onClick={() => setOpenMenu(false)}>
@@ -52,10 +77,10 @@ export default function AdminLayout({ children }) {
           </button>
         </div>
 
-        {/* ⭐ FIX: thêm scroll + auto close */}
+        {/* ⭐ SCROLLABLE mobile menu */}
         <div className="h-full overflow-y-auto">
           <Sidebar
-            onLogout={handleLogout}
+            onLogout={handleLogout}   // <--- FIX: Logout dùng bản xoá cache
             closeMenu={() => setOpenMenu(false)}
           />
         </div>
@@ -69,19 +94,17 @@ export default function AdminLayout({ children }) {
   );
 }
 
-/* ==========================================================================================
-   ⭐ SIDEBAR — dùng chung
-   ========================================================================================== */
-
+/* ============================================================
+   ⭐ SIDEBAR — dùng cho cả mobile & desktop
+============================================================ */
 function Sidebar({ onLogout, closeMenu }) {
   const handleClick = () => {
-    if (closeMenu) closeMenu(); // ⭐ FIX: auto close on mobile
+    if (closeMenu) closeMenu();
   };
 
   const linkClass = ({ isActive }) =>
     `block px-3 py-2 rounded text-sm transition 
-     ${isActive ? "bg-slate-800 text-white" : "text-slate-300 hover:bg-slate-900"}
-    `;
+     ${isActive ? "bg-slate-800 text-white" : "text-slate-300 hover:bg-slate-900"}`;
 
   return (
     <nav className="flex flex-col p-4 gap-2">
@@ -119,11 +142,11 @@ function Sidebar({ onLogout, closeMenu }) {
         Báo cáo doanh thu
       </NavLink>
 
-      {/* LOGOUT */}
+      {/* ⭐ LOGOUT — FULL CACHE CLEAN */}
       <button
         onClick={() => {
           handleClick();
-          onLogout();
+          onLogout(); // <--- Dùng hàm xoá cache full
         }}
         className="mt-6 px-4 py-2 text-left bg-slate-800 rounded hover:bg-slate-700 transition text-sm"
       >
