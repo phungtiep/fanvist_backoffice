@@ -7,19 +7,23 @@ export default function AdminLayout({ children }) {
   const navigate = useNavigate();
   const [openMenu, setOpenMenu] = useState(false);
 
-  /* ========================
-     ⭐ Lock scroll background
-  =========================== */
+  /* ============================================================
+     ⭐ LOCK BACKGROUND SCROLL — keep sidebar scrollable
+  ============================================================ */
   useEffect(() => {
+    const html = document.documentElement;
+
     if (openMenu) {
-      document.body.style.overflow = "hidden";
+      html.classList.add("overflow-hidden");
     } else {
-      document.body.style.overflow = "auto";
+      html.classList.remove("overflow-hidden");
     }
+
+    return () => html.classList.remove("overflow-hidden");
   }, [openMenu]);
 
   /* ============================================================
-     ⭐ LOGOUT — XÓA FULL CACHE
+     ⭐ LOGOUT — clear cache
   ============================================================ */
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -54,7 +58,7 @@ export default function AdminLayout({ children }) {
 
         <span className="text-lg font-semibold">Fanvist Backoffice</span>
 
-        {/* ⭐ LOGOUT HERE (mobile) */}
+        {/* ⭐ Logout button */}
         <button
           onClick={handleLogout}
           className="text-red-400 font-medium"
@@ -68,7 +72,7 @@ export default function AdminLayout({ children }) {
         <Sidebar onLogout={handleLogout} />
       </aside>
 
-      {/* ⭐ MOBILE BACKDROP */}
+      {/* ⭐ MOBILE OVERLAY */}
       {openMenu && (
         <div
           className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden"
@@ -80,6 +84,7 @@ export default function AdminLayout({ children }) {
       <aside
         className={`fixed left-0 top-0 w-64 h-full bg-slate-900 z-50 transform 
           transition-transform duration-300 ease-out lg:hidden shadow-xl 
+          overscroll-contain overflow-y-auto
           ${openMenu ? "translate-x-0" : "-translate-x-full"}`}
       >
         {/* TOP */}
@@ -91,10 +96,8 @@ export default function AdminLayout({ children }) {
           </button>
         </div>
 
-        {/* ⭐ SCROLLABLE mobile menu */}
-        <div className="h-full overflow-y-auto">
-          <Sidebar closeMenu={() => setOpenMenu(false)} />
-        </div>
+        {/* ⭐ SCROLLABLE MENU */}
+        <Sidebar closeMenu={() => setOpenMenu(false)} />
       </aside>
 
       {/* ⭐ MAIN CONTENT */}
@@ -106,7 +109,9 @@ export default function AdminLayout({ children }) {
 }
 
 /* ============================================================
-   ⭐ SIDEBAR — desktop + mobile (KHÔNG có logout)
+   ⭐ SIDEBAR — dùng cho cả mobile & desktop
+   ✔ Mobile: KHÔNG có logout
+   ✔ Desktop: CÓ logout
 ============================================================ */
 function Sidebar({ closeMenu, onLogout }) {
   const handleClick = () => {
@@ -124,6 +129,7 @@ function Sidebar({ closeMenu, onLogout }) {
       {onLogout && (
         <div className="hidden lg:flex items-center justify-between mb-4">
           <div className="text-xl font-semibold">Fanvist Backoffice</div>
+
           <button
             onClick={onLogout}
             className="px-2 py-1 text-xs bg-red-600 rounded hover:bg-red-500"
@@ -133,7 +139,7 @@ function Sidebar({ closeMenu, onLogout }) {
         </div>
       )}
 
-      {/* ⭐ Mobile header (KHÔNG có logout) */}
+      {/* ⭐ Mobile header (NO logout inside sidebar) */}
       {!onLogout && (
         <div className="text-xl font-semibold mb-4">
           Fanvist Backoffice
