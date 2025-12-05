@@ -107,7 +107,7 @@ export default function RoutesAdmin() {
 
   /* UI */
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-h-screen-dvh">
 
       {/* GLOBAL LOADING */}
       {globalLoading && (
@@ -276,7 +276,7 @@ function AccordionRow({
 }
 
 /* ============================================================
-   POPUP MODAL FIXED — SCROLL MOBILE SAFE
+   POPUP MODAL — FIXED WITH 100dvh SUPPORT
 ============================================================ */
 function AddRouteModal({ open, onClose, onCreated, setGlobalLoading }) {
   const [form, setForm] = useState(() => {
@@ -285,9 +285,9 @@ function AddRouteModal({ open, onClose, onCreated, setGlobalLoading }) {
     return base;
   });
 
+  // prevent body scroll
   useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "auto";
-    return () => (document.body.style.overflow = "auto");
+    document.documentElement.classList.toggle("overflow-hidden", open);
   }, [open]);
 
   const handleChange = (key, value, isNum = false) =>
@@ -300,10 +300,9 @@ function AddRouteModal({ open, onClose, onCreated, setGlobalLoading }) {
     if (!form.code || !form.name) return;
 
     setGlobalLoading(true);
-
     await supabase.from("routes").insert([{ ...form, active: true }]);
-
     setGlobalLoading(false);
+
     onCreated();
     onClose();
 
@@ -320,7 +319,8 @@ function AddRouteModal({ open, onClose, onCreated, setGlobalLoading }) {
         rounded-3xl shadow-2xl
         w-full max-w-lg
         flex flex-col
-        max-h-[90vh] overflow-hidden
+        max-h-screen-dvh
+        overflow-hidden
         animate-popup
       ">
 
@@ -329,7 +329,7 @@ function AddRouteModal({ open, onClose, onCreated, setGlobalLoading }) {
           <h2 className="text-xl font-semibold text-white text-center">Thêm tuyến mới</h2>
         </div>
 
-        {/* CONTENT SCROLL */}
+        {/* CONTENT (scrollable) */}
         <div className="px-6 space-y-4 overflow-y-auto flex-1 pb-4">
           <Input label="Mã tuyến" value={form.code} onChange={(e) => handleChange("code", e.target.value)} />
           <Input label="Tên tuyến" value={form.name} onChange={(e) => handleChange("name", e.target.value)} />

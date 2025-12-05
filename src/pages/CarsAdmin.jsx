@@ -11,6 +11,7 @@ export default function CarsAdmin() {
   const [globalLoading, setGlobalLoading] = useState(false);
   const [toast, setToast] = useState("");
 
+  /* MODAL STATE */
   const [addModal, setAddModal] = useState(false);
   const [newCar, setNewCar] = useState({
     code: "",
@@ -22,12 +23,12 @@ export default function CarsAdmin() {
     active: true,
   });
 
-  /* ⭐ KHÓA SCROLL BACKGROUND KHI POPUP MỞ */
+  /* ⭐ FIX: KHÓA SCROLL BACKGROUND KHI POPUP MỞ (CHUẨN iOS WebView) */
   useEffect(() => {
-    document.body.style.overflow = addModal ? "hidden" : "auto";
-    return () => (document.body.style.overflow = "auto");
+    document.documentElement.classList.toggle("overflow-hidden", addModal);
   }, [addModal]);
 
+  /* LOAD CARS */
   useEffect(() => {
     loadCars();
   }, []);
@@ -81,6 +82,7 @@ export default function CarsAdmin() {
     setGlobalLoading(false);
     setSavedId(car.id);
     setToast("Đã lưu thay đổi!");
+
     setTimeout(() => setSavedId(null), 1500);
     setTimeout(() => setToast(""), 1500);
 
@@ -134,7 +136,7 @@ export default function CarsAdmin() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-h-screen-dvh">
 
       {/* GLOBAL LOADING */}
       {globalLoading && (
@@ -187,40 +189,44 @@ export default function CarsAdmin() {
       )}
 
       {/* ============================================================
-         FIXED POPUP — iOS STYLE
+         ⭐ FIXED POPUP (iOS SAFE) — WITH 100dvh
       ============================================================ */}
       {addModal && (
-        <div className="
-          fixed inset-0 z-[9999]
-          flex items-center justify-center
-          bg-black/40 backdrop-blur-xl
-          px-4
-        ">
-
-          <div className="
-            bg-[#0f172a] text-white
-            w-full max-w-md mx-auto
-            rounded-[28px]
-            shadow-2xl
-            animate-ios-popup
-            flex flex-col
-            max-h-[90vh]      /* ⭐ CHO POPUP VỪA MÀN HÌNH */
-            overflow-hidden    /* ⭐ ẨN PHẦN DƯ */
-          ">
-
+        <div
+          className="
+            fixed inset-0 z-[9999]
+            flex items-center justify-center
+            bg-black/40 backdrop-blur-xl
+            px-4
+          "
+        >
+          <div
+            className="
+              bg-[#0f172a] text-white
+              w-full max-w-md mx-auto
+              rounded-[28px]
+              shadow-2xl
+              animate-ios-popup
+              flex flex-col
+              max-h-screen-dvh       /* ⭐ NO MORE BLACK GAP */
+              overflow-hidden
+            "
+          >
             {/* HEADER */}
             <div className="p-6 pb-3">
               <h2 className="text-xl font-semibold text-center">Thêm xe mới</h2>
             </div>
 
-            {/* SCROLL CONTENT */}
-            <div className="
-              px-6 
-              space-y-3
-              overflow-y-auto    /* ⭐ SCROLL CHỈ PHẦN NỘI DUNG */
-              flex-1             /* ⭐ CHIẾM PHẦN CÒN LẠI */
-              pb-4
-            ">
+            {/* CONTENT (scrollable) */}
+            <div
+              className="
+                px-6 
+                space-y-3
+                overflow-y-auto      /* ⭐ SCROLL INSIDE */
+                flex-1
+                pb-4
+              "
+            >
               <Input label="Code" value={newCar.code} onChange={(e)=>setNewCar({...newCar,code:e.target.value})} />
               <Input label="Tên (VI)" value={newCar.name_vi} onChange={(e)=>setNewCar({...newCar,name_vi:e.target.value})} />
               <Input label="Tên (EN)" value={newCar.name_en} onChange={(e)=>setNewCar({...newCar,name_en:e.target.value})} />
@@ -230,11 +236,13 @@ export default function CarsAdmin() {
             </div>
 
             {/* FOOTER */}
-            <div className="
-              flex justify-end gap-3 
-              p-6 pt-3 
-              border-t border-white/10
-            ">
+            <div
+              className="
+                flex justify-end gap-3 
+                p-6 pt-3 
+                border-t border-white/10
+              "
+            >
               <button
                 onClick={() => setAddModal(false)}
                 className="px-4 py-2 rounded-xl bg-gray-700 hover:bg-gray-600"
@@ -249,7 +257,6 @@ export default function CarsAdmin() {
                 Thêm xe
               </button>
             </div>
-
           </div>
         </div>
       )}
@@ -270,6 +277,7 @@ function CarRow({
   toggleActive,
 }) {
   const contentRef = useRef(null);
+
   return (
     <div className="border border-slate-800 bg-slate-900 rounded-xl overflow-hidden">
 
@@ -280,14 +288,23 @@ function CarRow({
         <div className="flex items-center gap-4">
           <span className="text-slate-200">{car.code}</span>
           <span className="text-slate-400">{car.name_vi}</span>
-          <span className={`text-xs px-2 py-1 rounded ${
-            car.active ? "bg-green-600/30 text-green-300" : "bg-red-600/30 text-red-300"
-          }`}>
+
+          <span
+            className={`text-xs px-2 py-1 rounded ${
+              car.active
+                ? "bg-green-600/30 text-green-300"
+                : "bg-red-600/30 text-red-300"
+            }`}
+          >
             {car.active ? "Active" : "Inactive"}
           </span>
         </div>
 
-        <div className={`text-slate-500 transition-transform ${open ? "rotate-180" : ""}`}>
+        <div
+          className={`text-slate-500 transition-transform ${
+            open ? "rotate-180" : ""
+          }`}
+        >
           ▼
         </div>
       </button>
@@ -298,6 +315,7 @@ function CarRow({
         style={{ height: open ? contentRef.current?.scrollHeight : 0 }}
       >
         <div className="px-6 pb-6 pt-3 space-y-4 bg-slate-900/70 border-t border-slate-800">
+
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <Input label="Code" value={car.code} onChange={(e)=>handleValue(car.id,"code",e.target.value)} />
             <Input label="Tên (VI)" value={car.name_vi} onChange={(e)=>handleValue(car.id,"name_vi",e.target.value)} />
@@ -310,7 +328,9 @@ function CarRow({
           <div className="flex items-center gap-3">
             <button
               onClick={() => toggleActive(car)}
-              className={`px-4 py-2 rounded-xl ${car.active ? "bg-rose-600" : "bg-emerald-600"}`}
+              className={`px-4 py-2 rounded-xl ${
+                car.active ? "bg-rose-600" : "bg-emerald-600"
+              }`}
             >
               {car.active ? "Disable" : "Enable"}
             </button>
@@ -326,6 +346,7 @@ function CarRow({
               <span className="text-green-400 animate-pulse">✓ Đã lưu</span>
             )}
           </div>
+
         </div>
       </div>
     </div>
