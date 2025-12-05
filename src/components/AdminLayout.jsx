@@ -11,20 +11,16 @@ export default function AdminLayout({ children }) {
      ⭐ LOGOUT — XÓA FULL CACHE (desktop + mobile)
   ============================================================ */
   const handleLogout = async () => {
-    // 1) Supabase logout
     await supabase.auth.signOut();
 
-    // 2) Clear storages
     localStorage.clear();
     sessionStorage.clear();
 
-    // 3) Clear Service Worker Cache
     if (window.caches) {
       const keys = await caches.keys();
       await Promise.all(keys.map((key) => caches.delete(key)));
     }
 
-    // 4) Clear IndexedDB
     if (window.indexedDB) {
       try {
         const dbs = await window.indexedDB.databases();
@@ -34,7 +30,6 @@ export default function AdminLayout({ children }) {
       } catch (e) {}
     }
 
-    // 5) Force reload
     navigate("/admin/login");
     setTimeout(() => window.location.reload(true), 200);
   };
@@ -47,8 +42,13 @@ export default function AdminLayout({ children }) {
         <button onClick={() => setOpenMenu(true)}>
           <HiMenu size={28} />
         </button>
+
         <span className="text-lg font-semibold">Fanvist Backoffice</span>
-        <div className="w-8" />
+
+        {/* ⭐ Logout button */}
+        <button onClick={handleLogout} className="text-red-400 font-medium">
+          Logout
+        </button>
       </div>
 
       {/* ⭐ DESKTOP SIDEBAR */}
@@ -70,8 +70,10 @@ export default function AdminLayout({ children }) {
           transition-transform duration-300 ease-out lg:hidden shadow-xl 
           ${openMenu ? "translate-x-0" : "-translate-x-full"}`}
       >
+        {/* TOP of Mobile Menu */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700 bg-slate-900">
           <span className="text-lg font-semibold">Menu</span>
+
           <button onClick={() => setOpenMenu(false)}>
             <HiX size={28} />
           </button>
@@ -80,7 +82,7 @@ export default function AdminLayout({ children }) {
         {/* ⭐ SCROLLABLE mobile menu */}
         <div className="h-full overflow-y-auto">
           <Sidebar
-            onLogout={handleLogout}   // <--- FIX: Logout dùng bản xoá cache
+            onLogout={handleLogout}
             closeMenu={() => setOpenMenu(false)}
           />
         </div>
@@ -108,7 +110,21 @@ function Sidebar({ onLogout, closeMenu }) {
 
   return (
     <nav className="flex flex-col p-4 gap-2">
-      <div className="text-xl font-semibold mb-2">Fanvist Backoffice</div>
+
+      {/* ⭐ Header + Logout button */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="text-xl font-semibold">Fanvist Backoffice</div>
+
+        <button
+          onClick={() => {
+            if (closeMenu) closeMenu();
+            onLogout();
+          }}
+          className="px-2 py-1 text-xs bg-red-600 rounded hover:bg-red-500"
+        >
+          Logout
+        </button>
+      </div>
 
       <NavLink to="/admin/bookings" className={linkClass} onClick={handleClick}>
         Quản lý Booking
@@ -141,17 +157,6 @@ function Sidebar({ onLogout, closeMenu }) {
       <NavLink to="/admin/revenue" className={linkClass} onClick={handleClick}>
         Báo cáo doanh thu
       </NavLink>
-
-      {/* ⭐ LOGOUT — FULL CACHE CLEAN */}
-      <button
-        onClick={() => {
-          handleClick();
-          onLogout(); // <--- Dùng hàm xoá cache full
-        }}
-        className="mt-6 px-4 py-2 text-left bg-slate-800 rounded hover:bg-slate-700 transition text-sm"
-      >
-        Đăng xuất
-      </button>
     </nav>
   );
 }
