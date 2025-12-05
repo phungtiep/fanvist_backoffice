@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 
-// ================= CONSTANT =================
+/* ============================================================
+   CONSTANTS
+============================================================ */
 const PRICE_FIELDS = [
   { key: "price_4", label: "4 chỗ" },
   { key: "price_7", label: "7 chỗ" },
@@ -16,6 +18,9 @@ const PRICE_FIELDS = [
   { key: "price_sedona", label: "Sedona" },
 ];
 
+/* ============================================================
+   MAIN COMPONENT
+============================================================ */
 export default function RoutesAdmin() {
   const [routes, setRoutes] = useState([]);
   const [openRow, setOpenRow] = useState(null);
@@ -26,11 +31,13 @@ export default function RoutesAdmin() {
   const [toast, setToast] = useState("");
   const [error, setError] = useState("");
 
-  const [globalLoading, setGlobalLoading] = useState(false); // ⭐ GLOBAL LOADING
+  const [globalLoading, setGlobalLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [deletingRoute, setDeletingRoute] = useState(null);
 
-  // ================= LOAD ROUTES =================
+  /* ============================================================
+     LOAD ROUTES
+  ============================================================ */
   useEffect(() => {
     loadRoutes();
   }, []);
@@ -49,7 +56,9 @@ export default function RoutesAdmin() {
     setGlobalLoading(false);
   }
 
-  // ================= UPDATE LOCAL INPUT =================
+  /* ============================================================
+     UPDATE LOCAL STATE
+  ============================================================ */
   const handleValue = (id, key, value) => {
     setRoutes((prev) =>
       prev.map((r) =>
@@ -64,7 +73,9 @@ export default function RoutesAdmin() {
     );
   };
 
-  // ================= SAVE ROUTE =================
+  /* ============================================================
+     SAVE ROUTE
+  ============================================================ */
   const saveRoute = async (route) => {
     setSavingId(route.id);
     setGlobalLoading(true);
@@ -99,7 +110,9 @@ export default function RoutesAdmin() {
     setTimeout(() => setSavedId(null), 1500);
   };
 
-  // ================= DELETE ROUTE =================
+  /* ============================================================
+     DELETE ROUTE
+  ============================================================ */
   const handleDeleteConfirmed = async () => {
     if (!deletingRoute) return;
 
@@ -114,15 +127,16 @@ export default function RoutesAdmin() {
 
     setDeletingRoute(null);
     await loadRoutes();
-
     setGlobalLoading(false);
   };
 
-  // ================= UI RETURN =================
+  /* ============================================================
+     UI
+  ============================================================ */
   return (
     <div className="space-y-6">
 
-      {/* ⭐ GLOBAL FULLSCREEN LOADING */}
+      {/* GLOBAL FULL LOADING */}
       {globalLoading && (
         <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center">
           <div className="w-12 h-12 border-4 border-white/30 border-t-indigo-500 rounded-full animate-spin"></div>
@@ -130,7 +144,7 @@ export default function RoutesAdmin() {
         </div>
       )}
 
-      {/* ⭐ GLOBAL TOAST */}
+      {/* TOAST */}
       {toast && (
         <div className="fixed top-4 right-4 px-4 py-2 bg-green-600 text-white rounded-xl shadow-lg animate-fade">
           {toast}
@@ -161,6 +175,7 @@ export default function RoutesAdmin() {
         </div>
       </div>
 
+      {/* ROUTE LIST */}
       {loading ? (
         <div className="text-center py-10 text-slate-300 animate-pulse">Đang tải dữ liệu…</div>
       ) : (
@@ -217,9 +232,8 @@ function AccordionRow({
   const contentRef = useRef(null);
 
   return (
-    <div className="border border-slate-800 bg-slate-900 rounded-xl overflow-hidden">
+    <div className="border border-slate-800 bg-slate-900 rounded-xl">
 
-      {/* HEADER */}
       <button
         onClick={onToggle}
         className="w-full flex items-center justify-between px-4 py-4 hover:bg-slate-800 transition"
@@ -234,17 +248,16 @@ function AccordionRow({
         </div>
       </button>
 
-      {/* CONTENT */}
       <div
         ref={contentRef}
-        className={`overflow-hidden transition-all duration-300 ease-out ${
-          open ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"
-        }`}
-        style={{ height: open ? contentRef.current?.scrollHeight : 0 }}
+        className="overflow-hidden transition-all duration-300 ease-out"
+        style={{
+          maxHeight: open ? contentRef.current?.scrollHeight : 0,
+          opacity: open ? 1 : 0,
+        }}
       >
         <div className="px-6 pb-6 pt-3 space-y-4 bg-slate-900/60 border-t border-slate-800">
 
-          {/* NAME */}
           <div>
             <label className="text-sm text-slate-400">Tên tuyến</label>
             <input
@@ -254,8 +267,7 @@ function AccordionRow({
             />
           </div>
 
-          {/* PRICES */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {PRICE_FIELDS.map((f) => (
               <div key={f.key}>
                 <label className="text-sm text-slate-400">{f.label}</label>
@@ -269,7 +281,6 @@ function AccordionRow({
             ))}
           </div>
 
-          {/* ACTION BUTTONS */}
           <div className="flex justify-between items-center mt-2">
             <button
               onClick={onDelete}
@@ -300,7 +311,7 @@ function AccordionRow({
 }
 
 /* ============================================================
-   MODAL: ADD ROUTE
+   POPUP MODAL: ADD ROUTE
 ============================================================ */
 function AddRouteModal({ open, onClose, onCreated, setGlobalLoading }) {
   const [form, setForm] = useState(() => {
@@ -309,18 +320,28 @@ function AddRouteModal({ open, onClose, onCreated, setGlobalLoading }) {
     return base;
   });
 
-  const handleChange = (key, value, isNumber = false) => {
+  /* ⭐ KHÓA SCROLL BODY KHI POPUP MỞ */
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "auto";
+    }
+    return () => {
+      document.body.style.overflow = "auto";
+    };
+  }, [open]);
+
+  const handleChange = (key, value, isNum = false) =>
     setForm((prev) => ({
       ...prev,
-      [key]: isNumber ? (value === "" ? null : Number(value)) : value,
+      [key]: isNum ? (value === "" ? null : Number(value)) : value,
     }));
-  };
 
   const handleSubmit = async () => {
     if (!form.code || !form.name) return;
 
     setGlobalLoading(true);
-
     const payload = { ...form, active: true };
 
     const { error } = await supabase.from("routes").insert([payload]);
@@ -337,34 +358,48 @@ function AddRouteModal({ open, onClose, onCreated, setGlobalLoading }) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-3xl p-6 shadow-2xl">
+    <div className="fixed inset-0 z-[9998] bg-black/50 backdrop-blur-sm flex items-center justify-center">
+
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg shadow-xl p-6 animate-popup">
 
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-white">Thêm tuyến mới</h2>
-          <button onClick={onClose} className="text-slate-400 text-lg">×</button>
+          <button onClick={onClose} className="text-slate-400 text-xl">×</button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <Input label="Code" value={form.code} onChange={(e) => handleChange("code", e.target.value)} />
-          <Input label="Tên tuyến" value={form.name} onChange={(e) => handleChange("name", e.target.value)} />
+        <div className="max-h-[70vh] overflow-y-auto pr-1 space-y-4">
+
+          <Input label="Mã tuyến" value={form.code} 
+                 onChange={(e) => handleChange("code", e.target.value)} />
+
+          <Input label="Tên tuyến" value={form.name} 
+                 onChange={(e) => handleChange("name", e.target.value)} />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {PRICE_FIELDS.map((f) => (
+              <Input
+                key={f.key}
+                label={f.label}
+                type="number"
+                value={form[f.key] ?? ""}
+                onChange={(e) => handleChange(f.key, e.target.value, true)}
+              />
+            ))}
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-          {PRICE_FIELDS.map((f) => (
-            <Input
-              key={f.key}
-              label={f.label}
-              type="number"
-              value={form[f.key] ?? ""}
-              onChange={(e) => handleChange(f.key, e.target.value, true)}
-            />
-          ))}
-        </div>
+        <div className="flex justify-end gap-3 mt-5">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600"
+          >
+            Hủy
+          </button>
 
-        <div className="flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2.5 bg-slate-700 text-white rounded-xl">Hủy</button>
-          <button onClick={handleSubmit} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl">
+          <button
+            onClick={handleSubmit}
+            className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg"
+          >
             Thêm tuyến
           </button>
         </div>
@@ -375,26 +410,23 @@ function AddRouteModal({ open, onClose, onCreated, setGlobalLoading }) {
 }
 
 /* ============================================================
-   MODAL: DELETE CONFIRM
+   DELETE CONFIRM
 ============================================================ */
 function DeleteConfirm({ open, onClose, onConfirm, route }) {
   if (!open || !route) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center">
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-md w-full">
 
-        <h2 className="text-lg text-white font-semibold mb-2">Xóa tuyến?</h2>
-        <p className="text-slate-300 text-sm mb-4">
-          Bạn có chắc muốn xóa tuyến
-          <span className="font-semibold text-white"> {route.code}</span>?
+        <h2 className="text-lg text-white font-semibold mb-3">Xóa tuyến?</h2>
+        <p className="text-slate-300 text-sm mb-6">
+          Bạn có chắc muốn xóa tuyến <span className="font-semibold">{route.code}</span>?
         </p>
 
-        <div className="flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2.5 bg-slate-700 text-white rounded-xl">Hủy</button>
-          <button onClick={onConfirm} className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl">
-            Xóa
-          </button>
+        <div className="flex justify-end gap-4">
+          <button onClick={onClose} className="px-4 py-2 bg-slate-700 text-white rounded-xl">Hủy</button>
+          <button onClick={onConfirm} className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl">Xóa</button>
         </div>
 
       </div>
@@ -411,8 +443,21 @@ function Input({ label, ...props }) {
       <label className="block text-sm text-slate-400 mb-1">{label}</label>
       <input
         {...props}
-        className={`w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none`}
+        className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none"
       />
     </div>
   );
 }
+
+/* ============================================================
+   ANIMATION CSS (ADD TO GLOBAL)
+============================================================ */
+/*
+.animate-popup {
+  animation: popup 0.2s ease-out;
+}
+@keyframes popup {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+*/
