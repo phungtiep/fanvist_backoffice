@@ -8,22 +8,19 @@ export default function AdminLayout({ children }) {
   const [openMenu, setOpenMenu] = useState(false);
 
   /* ============================================================
-     ⭐ LOCK BACKGROUND SCROLL — keep sidebar scrollable
+     ⭐ LOCK BACKGROUND SCROLL WHEN MOBILE SIDEBAR OPEN
   ============================================================ */
   useEffect(() => {
     const html = document.documentElement;
 
-    if (openMenu) {
-      html.classList.add("overflow-hidden");
-    } else {
-      html.classList.remove("overflow-hidden");
-    }
+    if (openMenu) html.classList.add("overflow-hidden");
+    else html.classList.remove("overflow-hidden");
 
     return () => html.classList.remove("overflow-hidden");
   }, [openMenu]);
 
   /* ============================================================
-     ⭐ LOGOUT — clear cache
+     ⭐ LOGOUT
   ============================================================ */
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -31,11 +28,13 @@ export default function AdminLayout({ children }) {
     localStorage.clear();
     sessionStorage.clear();
 
+    // Clear PWA cache
     if (window.caches) {
       const keys = await caches.keys();
-      await Promise.all(keys.map((key) => caches.delete(key)));
+      await Promise.all(keys.map((k) => caches.delete(k)));
     }
 
+    // Clear IndexedDB
     if (window.indexedDB) {
       try {
         const dbs = await window.indexedDB.databases();
@@ -44,35 +43,42 @@ export default function AdminLayout({ children }) {
     }
 
     navigate("/admin/login");
-    setTimeout(() => window.location.reload(true), 200);
+    setTimeout(() => window.location.reload(), 200);
   };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col lg:flex-row">
 
-      {/* ⭐ MOBILE TOP BAR */}
-      <div className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/60 backdrop-blur">
+      {/* ⭐ MOBILE HEADER — FIXED, NO SCROLL */}
+      <div className="
+        lg:hidden flex items-center justify-between px-4 py-3 
+        border-b border-slate-800 bg-slate-900/60 backdrop-blur
+        sticky top-0 z-[500]
+      ">
         <button onClick={() => setOpenMenu(true)}>
           <HiMenu size={28} />
         </button>
 
         <span className="text-lg font-semibold">Fanvist Backoffice</span>
 
-        {/* ⭐ Logout button */}
-        <button
-          onClick={handleLogout}
-          className="text-red-400 font-medium"
-        >
+        <button onClick={handleLogout} className="text-red-400 font-medium">
           Logout
         </button>
       </div>
 
-      {/* ⭐ DESKTOP SIDEBAR */}
-      <aside className="hidden lg:flex lg:flex-col w-64 border-r border-slate-800 bg-slate-950">
+      {/* ⭐ DESKTOP SIDEBAR — FIXED LEFT, NO SCROLL */}
+      <aside
+        className="
+          hidden lg:flex lg:flex-col 
+          w-64 h-screen 
+          border-r border-slate-800 bg-slate-950
+          sticky top-0
+        "
+      >
         <Sidebar onLogout={handleLogout} />
       </aside>
 
-      {/* ⭐ MOBILE OVERLAY */}
+      {/* ⭐ MOBILE SIDEBAR OVERLAY */}
       {openMenu && (
         <div
           className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden"
@@ -82,21 +88,20 @@ export default function AdminLayout({ children }) {
 
       {/* ⭐ MOBILE SIDEBAR */}
       <aside
-        className={`fixed left-0 top-0 w-64 h-full bg-slate-900 z-50 transform 
-          transition-transform duration-300 ease-out lg:hidden shadow-xl 
+        className={`
+          fixed left-0 top-0 w-64 h-full bg-slate-900 z-50 
+          transform transition-transform duration-300 ease-out lg:hidden shadow-xl
           overscroll-contain overflow-y-auto
-          ${openMenu ? "translate-x-0" : "-translate-x-full"}`}
+          ${openMenu ? "translate-x-0" : "-translate-x-full"}
+        `}
       >
-        {/* TOP */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700 bg-slate-900">
           <span className="text-lg font-semibold">Menu</span>
-
           <button onClick={() => setOpenMenu(false)}>
             <HiX size={28} />
           </button>
         </div>
 
-        {/* ⭐ SCROLLABLE MENU */}
         <Sidebar closeMenu={() => setOpenMenu(false)} />
       </aside>
 
@@ -109,9 +114,7 @@ export default function AdminLayout({ children }) {
 }
 
 /* ============================================================
-   ⭐ SIDEBAR — dùng cho cả mobile & desktop
-   ✔ Mobile: KHÔNG có logout
-   ✔ Desktop: CÓ logout
+   ⭐ SIDEBAR COMPONENT — SCROLLABLE MENU
 ============================================================ */
 function Sidebar({ closeMenu, onLogout }) {
   const handleClick = () => {
@@ -123,11 +126,14 @@ function Sidebar({ closeMenu, onLogout }) {
      ${isActive ? "bg-slate-800 text-white" : "text-slate-300 hover:bg-slate-900"}`;
 
   return (
-    <nav className="flex flex-col p-4 gap-2">
+    <nav className="flex flex-col p-4 gap-2 overflow-y-auto flex-1">
 
-      {/* ⭐ Desktop header + logout */}
+      {/* ⭐ DESKTOP HEADER (FIXED INSIDE SIDEBAR) */}
       {onLogout && (
-        <div className="hidden lg:flex items-center justify-between mb-4">
+        <div className="
+          hidden lg:flex items-center justify-between mb-4 
+          sticky top-0 bg-slate-950 pb-3 z-10 border-b border-slate-800
+        ">
           <div className="text-xl font-semibold">Fanvist Backoffice</div>
 
           <button
@@ -139,7 +145,7 @@ function Sidebar({ closeMenu, onLogout }) {
         </div>
       )}
 
-      {/* ⭐ Mobile header (NO logout inside sidebar) */}
+      {/* ⭐ MOBILE HEADER (NO LOGOUT BUTTON) */}
       {!onLogout && (
         <div className="text-xl font-semibold mb-4">
           Fanvist Backoffice

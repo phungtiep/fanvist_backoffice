@@ -24,9 +24,7 @@ export default function CarsAdmin() {
 
   /* ⭐ KHÓA SCROLL BACKGROUND KHI POPUP MỞ */
   useEffect(() => {
-    if (addModal) document.body.style.overflow = "hidden";
-    else document.body.style.overflow = "auto";
-
+    document.body.style.overflow = addModal ? "hidden" : "auto";
     return () => (document.body.style.overflow = "auto");
   }, [addModal]);
 
@@ -66,21 +64,21 @@ export default function CarsAdmin() {
     setSavingId(car.id);
     setGlobalLoading(true);
 
-    const payload = {
-      code: car.code,
-      name_vi: car.name_vi,
-      name_en: car.name_en,
-      seat_count: car.seat_count,
-      base_price: car.base_price,
-      image_url: car.image_url,
-      active: car.active,
-    };
-
-    await supabase.from("cars").update(payload).eq("id", car.id);
+    await supabase
+      .from("cars")
+      .update({
+        code: car.code,
+        name_vi: car.name_vi,
+        name_en: car.name_en,
+        seat_count: car.seat_count,
+        base_price: car.base_price,
+        image_url: car.image_url,
+        active: car.active,
+      })
+      .eq("id", car.id);
 
     setSavingId(null);
     setGlobalLoading(false);
-
     setSavedId(car.id);
     setToast("Đã lưu thay đổi!");
     setTimeout(() => setSavedId(null), 1500);
@@ -100,19 +98,16 @@ export default function CarsAdmin() {
 
     setGlobalLoading(false);
 
-    setToast(!car.active ? "Xe đã được bật hoạt động" : "Xe đã bị vô hiệu hóa");
+    setToast(!car.active ? "Xe đã được bật" : "Xe đã bị tắt");
     setTimeout(() => setToast(""), 1500);
 
     await loadCars();
   };
 
-  /* ==========================
-     ADD CAR SUBMIT
-  ========================== */
   const handleAddCar = async () => {
     setGlobalLoading(true);
 
-    const payload = {
+    await supabase.from("cars").insert({
       code: newCar.code,
       name_vi: newCar.name_vi,
       name_en: newCar.name_en,
@@ -120,9 +115,7 @@ export default function CarsAdmin() {
       base_price: Number(newCar.base_price),
       image_url: newCar.image_url,
       active: true,
-    };
-
-    await supabase.from("cars").insert(payload);
+    });
 
     setGlobalLoading(false);
     setAddModal(false);
@@ -147,7 +140,7 @@ export default function CarsAdmin() {
       {globalLoading && (
         <div className="fixed inset-0 z-[9998] bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center">
           <div className="w-12 h-12 border-4 border-white/30 border-t-indigo-500 rounded-full animate-spin"></div>
-          <p className="mt-4 text-white text-lg">Đang xử lý...</p>
+          <p className="mt-4 text-white">Đang xử lý...</p>
         </div>
       )}
 
@@ -164,16 +157,14 @@ export default function CarsAdmin() {
 
         <button
           onClick={() => setAddModal(true)}
-          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-white"
+          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg"
         >
           + Thêm xe
         </button>
       </div>
 
-      {/* CAR LIST */}
-      {loading ? (
-        <p className="text-slate-300">Đang tải dữ liệu...</p>
-      ) : (
+      {/* LIST */}
+      {!loading ? (
         <div className="space-y-3">
           {cars.map((car) => (
             <CarRow
@@ -191,38 +182,59 @@ export default function CarsAdmin() {
             />
           ))}
         </div>
+      ) : (
+        <p className="text-slate-300">Đang tải dữ liệu...</p>
       )}
 
       {/* ============================================================
-         POPUP ADD CAR (CHUẨN iOS – KHÔNG LỆCH, KHÓA SCROLL)
+         FIXED POPUP — iOS STYLE
       ============================================================ */}
       {addModal && (
         <div className="
           fixed inset-0 z-[9999]
           flex items-center justify-center
           bg-black/40 backdrop-blur-xl
-          animate-fade-in px-4
+          px-4
         ">
-          <div className="
-            bg-[#111827] text-white 
-            w-full max-w-md mx-auto
-            rounded-[28px] p-6
-            shadow-[0_20px_40px_rgba(0,0,0,0.55)]
-            animate-ios-popup
-          ">
-            
-            <h2 className="text-xl font-semibold mb-4 text-center">Thêm xe mới</h2>
 
-            <div className="space-y-3 max-h-[65vh] overflow-y-auto pr-1">
-              <Input label="Code" value={newCar.code} onChange={(e) => setNewCar({ ...newCar, code: e.target.value })} />
-              <Input label="Tên (VI)" value={newCar.name_vi} onChange={(e) => setNewCar({ ...newCar, name_vi: e.target.value })} />
-              <Input label="Tên (EN)" value={newCar.name_en} onChange={(e) => setNewCar({ ...newCar, name_en: e.target.value })} />
-              <Input label="Số ghế" type="number" value={newCar.seat_count} onChange={(e) => setNewCar({ ...newCar, seat_count: e.target.value })} />
-              <Input label="Giá cơ bản" type="number" value={newCar.base_price} onChange={(e) => setNewCar({ ...newCar, base_price: e.target.value })} />
-              <Input label="Image URL" value={newCar.image_url} onChange={(e) => setNewCar({ ...newCar, image_url: e.target.value })} />
+          <div className="
+            bg-[#0f172a] text-white
+            w-full max-w-md mx-auto
+            rounded-[28px]
+            shadow-2xl
+            animate-ios-popup
+            flex flex-col
+            max-h-[90vh]      /* ⭐ CHO POPUP VỪA MÀN HÌNH */
+            overflow-hidden    /* ⭐ ẨN PHẦN DƯ */
+          ">
+
+            {/* HEADER */}
+            <div className="p-6 pb-3">
+              <h2 className="text-xl font-semibold text-center">Thêm xe mới</h2>
             </div>
 
-            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-white/10">
+            {/* SCROLL CONTENT */}
+            <div className="
+              px-6 
+              space-y-3
+              overflow-y-auto    /* ⭐ SCROLL CHỈ PHẦN NỘI DUNG */
+              flex-1             /* ⭐ CHIẾM PHẦN CÒN LẠI */
+              pb-4
+            ">
+              <Input label="Code" value={newCar.code} onChange={(e)=>setNewCar({...newCar,code:e.target.value})} />
+              <Input label="Tên (VI)" value={newCar.name_vi} onChange={(e)=>setNewCar({...newCar,name_vi:e.target.value})} />
+              <Input label="Tên (EN)" value={newCar.name_en} onChange={(e)=>setNewCar({...newCar,name_en:e.target.value})} />
+              <Input label="Số ghế" type="number" value={newCar.seat_count} onChange={(e)=>setNewCar({...newCar,seat_count:e.target.value})} />
+              <Input label="Giá cơ bản" type="number" value={newCar.base_price} onChange={(e)=>setNewCar({...newCar,base_price:e.target.value})} />
+              <Input label="Image URL" value={newCar.image_url} onChange={(e)=>setNewCar({...newCar,image_url:e.target.value})} />
+            </div>
+
+            {/* FOOTER */}
+            <div className="
+              flex justify-end gap-3 
+              p-6 pt-3 
+              border-t border-white/10
+            ">
               <button
                 onClick={() => setAddModal(false)}
                 className="px-4 py-2 rounded-xl bg-gray-700 hover:bg-gray-600"
@@ -246,9 +258,7 @@ export default function CarsAdmin() {
   );
 }
 
-/* ============================================================
-   CAR ROW
-============================================================ */
+/* ROW COMPONENT */
 function CarRow({
   car,
   open,
@@ -259,10 +269,9 @@ function CarRow({
   savedId,
   toggleActive,
 }) {
-  const ref = useRef(null);
-
+  const contentRef = useRef(null);
   return (
-    <div className="border border-slate-800 bg-slate-900 rounded-xl">
+    <div className="border border-slate-800 bg-slate-900 rounded-xl overflow-hidden">
 
       <button
         onClick={onToggle}
@@ -271,48 +280,37 @@ function CarRow({
         <div className="flex items-center gap-4">
           <span className="text-slate-200">{car.code}</span>
           <span className="text-slate-400">{car.name_vi}</span>
-
-          <span
-            className={`text-xs px-2 py-1 rounded ${
-              car.active
-                ? "bg-green-600/30 text-green-300"
-                : "bg-red-600/30 text-red-300"
-            }`}
-          >
+          <span className={`text-xs px-2 py-1 rounded ${
+            car.active ? "bg-green-600/30 text-green-300" : "bg-red-600/30 text-red-300"
+          }`}>
             {car.active ? "Active" : "Inactive"}
           </span>
         </div>
 
-        <div
-          className={`text-slate-500 transition-transform ${
-            open ? "rotate-180" : ""
-          }`}
-        >
+        <div className={`text-slate-500 transition-transform ${open ? "rotate-180" : ""}`}>
           ▼
         </div>
       </button>
 
       <div
-        ref={ref}
+        ref={contentRef}
         className="overflow-hidden transition-all duration-300"
-        style={{ height: open ? ref.current?.scrollHeight : 0 }}
+        style={{ height: open ? contentRef.current?.scrollHeight : 0 }}
       >
-        <div className="px-6 pb-6 pt-3 space-y-4 bg-slate-900/70">
+        <div className="px-6 pb-6 pt-3 space-y-4 bg-slate-900/70 border-t border-slate-800">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <Input label="Code" value={car.code} onChange={(e) => handleValue(car.id, "code", e.target.value)} />
-            <Input label="Tên (VI)" value={car.name_vi} onChange={(e) => handleValue(car.id, "name_vi", e.target.value)} />
-            <Input label="Tên (EN)" value={car.name_en} onChange={(e) => handleValue(car.id, "name_en", e.target.value)} />
-            <Input label="Số ghế" type="number" value={car.seat_count} onChange={(e) => handleValue(car.id, "seat_count", e.target.value)} />
-            <Input label="Giá cơ bản" type="number" value={car.base_price} onChange={(e) => handleValue(car.id, "base_price", e.target.value)} />
-            <Input label="Image URL" value={car.image_url || ""} onChange={(e) => handleValue(car.id, "image_url", e.target.value)} />
+            <Input label="Code" value={car.code} onChange={(e)=>handleValue(car.id,"code",e.target.value)} />
+            <Input label="Tên (VI)" value={car.name_vi} onChange={(e)=>handleValue(car.id,"name_vi",e.target.value)} />
+            <Input label="Tên (EN)" value={car.name_en} onChange={(e)=>handleValue(car.id,"name_en",e.target.value)} />
+            <Input label="Số ghế" type="number" value={car.seat_count} onChange={(e)=>handleValue(car.id,"seat_count",e.target.value)} />
+            <Input label="Giá cơ bản" type="number" value={car.base_price} onChange={(e)=>handleValue(car.id,"base_price",e.target.value)} />
+            <Input label="Image URL" value={car.image_url} onChange={(e)=>handleValue(car.id,"image_url",e.target.value)} />
           </div>
 
           <div className="flex items-center gap-3">
             <button
               onClick={() => toggleActive(car)}
-              className={`px-4 py-2 rounded-xl ${
-                car.active ? "bg-rose-600" : "bg-emerald-600"
-              }`}
+              className={`px-4 py-2 rounded-xl ${car.active ? "bg-rose-600" : "bg-emerald-600"}`}
             >
               {car.active ? "Disable" : "Enable"}
             </button>
@@ -330,14 +328,11 @@ function CarRow({
           </div>
         </div>
       </div>
-
     </div>
   );
 }
 
-/* ============================================================
-   INPUT COMPONENT
-============================================================ */
+/* INPUT COMPONENT */
 function Input({ label, ...props }) {
   return (
     <div>
@@ -349,24 +344,3 @@ function Input({ label, ...props }) {
     </div>
   );
 }
-
-/* ============================================================
-   ANIMATIONS (ADD TO globals.css)
-============================================================ */
-/*
-@keyframes ios-popup {
-  0% { opacity: 0; transform: scale(0.9) translateY(10px); }
-  100% { opacity: 1; transform: scale(1) translateY(0); }
-}
-.animate-ios-popup {
-  animation: ios-popup 0.25s ease-out;
-}
-
-@keyframes fade-in {
-  0% { opacity: 0 }
-  100% { opacity: 1 }
-}
-.animate-fade-in {
-  animation: fade-in 0.2s ease-out;
-}
-*/
