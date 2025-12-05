@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { HiMenu, HiX } from "react-icons/hi";
 import { supabase } from "../lib/supabase";
@@ -7,8 +7,19 @@ export default function AdminLayout({ children }) {
   const navigate = useNavigate();
   const [openMenu, setOpenMenu] = useState(false);
 
+  /* ========================
+     ⭐ Lock scroll background
+  =========================== */
+  useEffect(() => {
+    if (openMenu) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "auto";
+    }
+  }, [openMenu]);
+
   /* ============================================================
-     ⭐ LOGOUT — XÓA FULL CACHE (desktop + mobile)
+     ⭐ LOGOUT — XÓA FULL CACHE
   ============================================================ */
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -24,9 +35,7 @@ export default function AdminLayout({ children }) {
     if (window.indexedDB) {
       try {
         const dbs = await window.indexedDB.databases();
-        dbs.forEach((db) => {
-          window.indexedDB.deleteDatabase(db.name);
-        });
+        dbs.forEach((db) => window.indexedDB.deleteDatabase(db.name));
       } catch (e) {}
     }
 
@@ -45,8 +54,11 @@ export default function AdminLayout({ children }) {
 
         <span className="text-lg font-semibold">Fanvist Backoffice</span>
 
-        {/* ⭐ Logout button */}
-        <button onClick={handleLogout} className="text-red-400 font-medium">
+        {/* ⭐ LOGOUT HERE (mobile) */}
+        <button
+          onClick={handleLogout}
+          className="text-red-400 font-medium"
+        >
           Logout
         </button>
       </div>
@@ -70,7 +82,7 @@ export default function AdminLayout({ children }) {
           transition-transform duration-300 ease-out lg:hidden shadow-xl 
           ${openMenu ? "translate-x-0" : "-translate-x-full"}`}
       >
-        {/* TOP of Mobile Menu */}
+        {/* TOP */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700 bg-slate-900">
           <span className="text-lg font-semibold">Menu</span>
 
@@ -81,10 +93,7 @@ export default function AdminLayout({ children }) {
 
         {/* ⭐ SCROLLABLE mobile menu */}
         <div className="h-full overflow-y-auto">
-          <Sidebar
-            onLogout={handleLogout}
-            closeMenu={() => setOpenMenu(false)}
-          />
+          <Sidebar closeMenu={() => setOpenMenu(false)} />
         </div>
       </aside>
 
@@ -97,9 +106,9 @@ export default function AdminLayout({ children }) {
 }
 
 /* ============================================================
-   ⭐ SIDEBAR — dùng cho cả mobile & desktop
+   ⭐ SIDEBAR — desktop + mobile (KHÔNG có logout)
 ============================================================ */
-function Sidebar({ onLogout, closeMenu }) {
+function Sidebar({ closeMenu, onLogout }) {
   const handleClick = () => {
     if (closeMenu) closeMenu();
   };
@@ -111,20 +120,25 @@ function Sidebar({ onLogout, closeMenu }) {
   return (
     <nav className="flex flex-col p-4 gap-2">
 
-      {/* ⭐ Header + Logout button */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="text-xl font-semibold">Fanvist Backoffice</div>
+      {/* ⭐ Desktop header + logout */}
+      {onLogout && (
+        <div className="hidden lg:flex items-center justify-between mb-4">
+          <div className="text-xl font-semibold">Fanvist Backoffice</div>
+          <button
+            onClick={onLogout}
+            className="px-2 py-1 text-xs bg-red-600 rounded hover:bg-red-500"
+          >
+            Logout
+          </button>
+        </div>
+      )}
 
-        <button
-          onClick={() => {
-            if (closeMenu) closeMenu();
-            onLogout();
-          }}
-          className="px-2 py-1 text-xs bg-red-600 rounded hover:bg-red-500"
-        >
-          Logout
-        </button>
-      </div>
+      {/* ⭐ Mobile header (KHÔNG có logout) */}
+      {!onLogout && (
+        <div className="text-xl font-semibold mb-4">
+          Fanvist Backoffice
+        </div>
+      )}
 
       <NavLink to="/admin/bookings" className={linkClass} onClick={handleClick}>
         Quản lý Booking
