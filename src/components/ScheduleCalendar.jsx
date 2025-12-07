@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase.js";
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi2";
 import { useNavigate } from "react-router-dom";
+import dotenv from "dotenv";
+dotenv.config();
 
 export default function ScheduleCalendar() {
     const navigate = useNavigate();
@@ -294,10 +296,7 @@ export default function ScheduleCalendar() {
             };
 
             // URL webhook: thay bằng URL Google Script deploy của bạn
-            const webhookUrl =
-                import.meta?.env?.VITE_DRIVER_ASSIGN_WEBHOOK ||
-                process.env.SEND_EMAIL_DRIVER_WEBHOOK_URL ||
-                "";
+            const webhookUrl = process.env.SEND_EMAIL_DRIVER_WEBHOOK_URL;
 
             if (webhookUrl) {
                 await fetch(webhookUrl, {
