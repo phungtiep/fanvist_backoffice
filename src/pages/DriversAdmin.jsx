@@ -21,11 +21,31 @@ export default function DriversAdmin() {
     setTimeout(() => setToast(null), 2200);
   }
 
-  // 1️⃣ Load drivers
+  /* ============================================================
+      LOCK SCROLL WHEN MODAL OPEN
+  ============================================================ */
+  useEffect(() => {
+    if (modalOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "auto";
+    }
+
+    return () => {
+      document.body.style.overflow = "auto";
+    };
+  }, [modalOpen]);
+
+  /* ============================================================
+     LOAD DRIVERS
+  ============================================================ */
   async function load() {
     setLoadingPage(true);
 
-    let query = supabase.from("drivers").select("*").order("created_at", { ascending: false });
+    let query = supabase
+      .from("drivers")
+      .select("*")
+      .order("created_at", { ascending: false });
 
     if (search.trim()) {
       query = query.or(
@@ -36,17 +56,16 @@ export default function DriversAdmin() {
     const { data, error } = await query;
     setLoadingPage(false);
 
-    if (error) {
-      console.error("LOAD ERROR:", error);
-      return;
-    }
-
-    setDrivers(data);
+    if (!error) setDrivers(data);
   }
 
-  useEffect(() => { load(); }, [search]);
+  useEffect(() => {
+    load();
+  }, [search]);
 
-  // 2️⃣ Delete driver
+  /* ============================================================
+     DELETE
+  ============================================================ */
   async function handleDelete(id) {
     if (!confirm("Xóa tài xế này?")) return;
 
@@ -60,7 +79,9 @@ export default function DriversAdmin() {
     load();
   }
 
-  // 3️⃣ Open modals
+  /* ============================================================
+     MODAL OPENERS
+  ============================================================ */
   const openCreateModal = () => {
     setForm({
       full_name: "",
@@ -89,7 +110,9 @@ export default function DriversAdmin() {
     setModalOpen(true);
   };
 
-  // 4️⃣ Save (create + update)
+  /* ============================================================
+     SAVE (CREATE / UPDATE)
+  ============================================================ */
   async function handleSave() {
     if (!form) return;
 
@@ -101,13 +124,9 @@ export default function DriversAdmin() {
         : supabase.from("drivers").update({ ...form }).eq("id", form.id);
 
     const { error } = await query;
-
     setLoadingSave(false);
 
-    if (error) {
-      console.error("SAVE ERROR:", error);
-      return showToast("Lưu thất bại!", "error");
-    }
+    if (error) return showToast("Lưu thất bại!", "error");
 
     showToast("Lưu thành công!", "success");
     setModalOpen(false);
@@ -115,6 +134,9 @@ export default function DriversAdmin() {
     load();
   }
 
+  /* ============================================================
+     UI
+  ============================================================ */
   return (
     <div className="p-6 text-slate-200 relative">
       <h1 className="text-2xl font-bold mb-6">Quản lý Tài xế</h1>
@@ -150,9 +172,7 @@ export default function DriversAdmin() {
               📞 {d.phone}
             </div>
 
-            <div className="text-sm">
-              🚗 GPLX: {d.personal_number || "—"}
-            </div>
+            <div className="text-sm">🚗 GPLX: {d.personal_number || "—"}</div>
 
             <div className="text-sm text-green-400 font-semibold mt-2">
               Lương cứng: {d.base_salary.toLocaleString("vi-VN")} đ
@@ -200,17 +220,22 @@ export default function DriversAdmin() {
               <Field label="Họ tên" readOnly={modalMode === "view"} value={form.full_name} onChange={(v)=>setForm({...form,full_name:v})}/>
               <Field label="Số điện thoại" readOnly={modalMode === "view"} value={form.phone} onChange={(v)=>setForm({...form,phone:v})}/>
               <Field label="Email" readOnly={modalMode === "view"} value={form.email} onChange={(v)=>setForm({...form,email:v})}/>
-              <Field label="Ngày sinh" type="date" readOnly={modalMode === "view"} value={form.birthdate} onChange={(v)=>setForm({...form,birthdate:v})}/>
+              <Field label="Ngày sinh" readOnly={modalMode === "view"} type="date" value={form.birthdate} onChange={(v)=>setForm({...form,birthdate:v})}/>
               <Field label="GPLX" readOnly={modalMode === "view"} value={form.personal_number} onChange={(v)=>setForm({...form,personal_number:v})}/>
               <Field label="Địa chỉ" readOnly={modalMode === "view"} value={form.address} onChange={(v)=>setForm({...form,address:v})}/>
-              <Field label="Lương cứng" type="number" readOnly={modalMode === "view"} value={form.base_salary} onChange={(v)=>setForm({...form,base_salary:Number(v)})}/>
-              <Field label="Hoa hồng (%)" type="number" readOnly={modalMode === "view"} value={form.commission_rate} onChange={(v)=>setForm({...form,commission_rate:Number(v)})}/>
+              <Field label="Lương cứng" readOnly={modalMode === "view"} type="number" value={form.base_salary} onChange={(v)=>setForm({...form,base_salary:Number(v)})}/>
+              <Field label="Hoa hồng (%)" readOnly={modalMode === "view"} type="number" value={form.commission_rate} onChange={(v)=>setForm({...form,commission_rate:Number(v)})}/>
             </div>
 
             <div className="flex justify-end gap-2 mt-4">
-              <button className="px-4 py-2 bg-slate-600 rounded" onClick={() => { setModalOpen(false); setForm(null); }}>Đóng</button>
+              <button className="px-4 py-2 bg-slate-600 rounded" onClick={() => { setModalOpen(false); setForm(null); }}>
+                Đóng
+              </button>
+
               {modalMode !== "view" && (
-                <button className="px-4 py-2 bg-blue-600 rounded" onClick={handleSave}>Lưu</button>
+                <button className="px-4 py-2 bg-blue-600 rounded" onClick={handleSave}>
+                  Lưu
+                </button>
               )}
             </div>
           </div>
@@ -233,7 +258,7 @@ export default function DriversAdmin() {
   );
 }
 
-/* FIELD REUSABLE COMPONENT */
+/* FIELD COMPONENT */
 function Field({ label, value, readOnly, onChange, type = "text" }) {
   return (
     <div>
