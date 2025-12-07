@@ -18,11 +18,9 @@ export default function BookingsAdmin() {
   const [search, setSearch] = useState("");
   const [fromDate, setFromDate] = useState(defaultFrom);
   const [toDate, setToDate] = useState(defaultTo);
-
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState("view"); // view | edit | add
+  const [modalMode, setModalMode] = useState("view");
   const [form, setForm] = useState(null);
-
   const [loadingPage, setLoadingPage] = useState(true);
   const [loadingSave, setLoadingSave] = useState(false);
   const [loadingDelete, setLoadingDelete] = useState(false);
@@ -44,10 +42,7 @@ export default function BookingsAdmin() {
 
   function formatDateVN(dateStr) {
     const d = new Date(dateStr);
-    const dd = String(d.getDate()).padStart(2, "0");
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const yyyy = d.getFullYear();
-    return `${dd}/${mm}/${yyyy}`;
+    return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
   }
 
   function groupByDate(list) {
@@ -83,13 +78,22 @@ export default function BookingsAdmin() {
     };
   }
 
+  function getRouteName(code) {
+    const route = routes.find(r => r.code === code);
+    return route ? route.name : code;
+  }
+
+  function getCarName(code) {
+    const car = cars.find(c => c.code === code);
+    return car ? car.name_vi : code;
+  }
+
   /* =========================================================================
      LOADERS
   ========================================================================= */
 
   async function load() {
     setLoadingPage(true);
-
     let query = supabase.from("bookings").select("*");
 
     if (search) {
@@ -131,14 +135,10 @@ export default function BookingsAdmin() {
   async function loadCars() {
     const { data } = await supabase
       .from("cars")
-      .select("id, code, seat_count, base_price")
+      .select("id, code, name_vi, seat_count, base_price")
       .order("seat_count");
     setCars(data || []);
   }
-
-  /* =========================================================================
-     EFFECTS
-  ========================================================================= */
 
   useEffect(() => {
     load();
@@ -157,55 +157,29 @@ export default function BookingsAdmin() {
 
   const handleDelete = async (id) => {
     if (!confirm("Bạn có chắc muốn xóa booking?")) return;
-
     setLoadingDelete(true);
-    const { error } = await supabase.rpc("delete_booking_cascade", {
-      p_booking_id: id,
-    });
+
+    const { error } = await supabase.rpc("delete_booking_cascade", { p_booking_id: id });
 
     setLoadingDelete(false);
 
-    if (error) {
-      showToast("Không thể xóa booking!", "error");
-      return;
-    }
+    if (error) return showToast("Không thể xóa booking!", "error");
 
     showToast("Đã xóa booking!", "success");
     load();
   };
 
   /* =========================================================================
-     SAVE BOOKING (ADD / EDIT)
+     SAVE (ADD / EDIT)
   ========================================================================= */
 
   const handleSave = async () => {
     if (!form) return;
-
     setLoadingSave(true);
 
-    const payload = {
-      full_name: form.full_name,
-      phone: form.phone,
-      email: form.email,
-      route: form.route,
-      car_type: form.car_type,
-      pickup_place: form.pickup_place,
-      dropoff_place: form.dropoff_place,
-      date: form.date,
-      time: form.time,
-      round_trip: form.round_trip,
-      return_date: form.return_date,
-      return_time: form.return_time,
-      note: form.note,
-      adult_count: form.adult_count,
-      child_count: form.child_count,
-      total_price: form.total_price,
-      driver_id: form.driver_id || null,
-      vehicle_id: form.vehicle_id || null,
-    };
+    const payload = { ...form, driver_id: form.driver_id || null, vehicle_id: form.vehicle_id || null };
 
     let error;
-
     if (modalMode === "add") {
       const res = await supabase.from("bookings").insert(payload);
       error = res.error;
@@ -216,10 +190,7 @@ export default function BookingsAdmin() {
 
     setLoadingSave(false);
 
-    if (error) {
-      showToast("Lưu thất bại!", "error");
-      return;
-    }
+    if (error) return showToast("Lưu thất bại!", "error");
 
     showToast("Lưu thành công!", "success");
     setModalOpen(false);
@@ -227,7 +198,7 @@ export default function BookingsAdmin() {
   };
 
   /* =========================================================================
-     UI — MAIN RETURN
+     UI
   ========================================================================= */
 
   const grouped = groupByDate(bookings);
@@ -235,10 +206,9 @@ export default function BookingsAdmin() {
   return (
     <div className="p-6 text-slate-200 relative">
 
-      {/* HEADER + ADD BUTTON */}
+      {/* HEADER */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Quản lý Booking (30 ngày tới)</h1>
-
         <button
           className="px-4 py-2 bg-blue-600 rounded-lg flex items-center gap-2"
           onClick={() => {
@@ -261,33 +231,16 @@ export default function BookingsAdmin() {
         />
 
         <div className="grid grid-cols-2 gap-4">
-          <input
-            type="date"
-            className="bg-slate-700 p-3 rounded-lg"
-            value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
-          />
-
-          <input
-            type="date"
-            className="bg-slate-700 p-3 rounded-lg"
-            value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
-          />
+          <input type="date" className="bg-slate-700 p-3 rounded-lg" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+          <input type="date" className="bg-slate-700 p-3 rounded-lg" value={toDate} onChange={(e) => setToDate(e.target.value)} />
         </div>
 
-        <button
-          className="w-full py-2 mt-3 bg-blue-600 rounded-lg"
-          onClick={() => {
-            setFromDate(defaultFrom);
-            setToDate(defaultTo);
-          }}
-        >
+        <button className="w-full py-2 mt-3 bg-blue-600 rounded-lg" onClick={() => { setFromDate(defaultFrom); setToDate(defaultTo); }}>
           30 ngày tới
         </button>
       </div>
 
-      {/* MOBILE ACCORDION */}
+      {/* MOBILE */}
       <div className="sm:hidden space-y-4">
         {grouped.map(([date, items]) => (
           <MobileAccordionDay
@@ -295,22 +248,16 @@ export default function BookingsAdmin() {
             date={date}
             items={items}
             formatDateVN={formatDateVN}
-            openViewModal={(r) => {
-              setForm(rowToForm(r));
-              setModalMode("view");
-              setModalOpen(true);
-            }}
-            openEditModal={(r) => {
-              setForm(rowToForm(r));
-              setModalMode("edit");
-              setModalOpen(true);
-            }}
+            openViewModal={(r) => { setForm(rowToForm(r)); setModalMode("view"); setModalOpen(true); }}
+            openEditModal={(r) => { setForm(rowToForm(r)); setModalMode("edit"); setModalOpen(true); }}
             handleDelete={handleDelete}
+            getRouteName={getRouteName}
+            getCarName={getCarName}
           />
         ))}
       </div>
 
-      {/* DESKTOP GRID */}
+      {/* DESKTOP */}
       <div className="hidden sm:block">
         {grouped.map(([date, items]) => (
           <div key={date} className="mb-10">
@@ -325,20 +272,32 @@ export default function BookingsAdmin() {
                     setModalMode("view");
                     setModalOpen(true);
                   }}
-                  className="bg-[#1E293B] border border-slate-700 rounded-xl p-4 cursor-pointer hover:border-slate-500 transition"
+                  className="bg-[#1E2538] border border-slate-600/40 rounded-2xl p-5 shadow-lg
+                             cursor-pointer hover:border-blue-500/50 hover:shadow-blue-900/30 transition-all"
                 >
-                  <div className="font-semibold text-lg">{b.full_name}</div>
-                  <div className="text-slate-400 text-sm">
-                    {b.route} • {b.car_type}
+                  {/* NAME */}
+                  <div className="text-xl font-semibold text-white mb-1">
+                    {b.full_name}
                   </div>
 
-                  <div className="mt-2 text-sm space-y-1">
+                  {/* ROUTE + CAR */}
+                  <div className="flex items-center gap-2 text-slate-300 text-sm mb-3">
+                    <span>{getRouteName(b.route)}</span>
+                    <span className="text-slate-500">•</span>
+                    <span className="px-2 py-0.5 bg-slate-700/60 rounded-lg text-xs border border-slate-600 whitespace-nowrap">
+                      {getCarName(b.car_type)}
+                    </span>
+                  </div>
+
+                  {/* PHONE + TIME */}
+                  <div className="space-y-1 text-sm text-slate-400 mb-4">
                     <div>SĐT: {b.phone}</div>
                     <div>Giờ đi: {b.time}</div>
                   </div>
 
-                  <div className="flex justify-between items-center mt-4">
-                    <div className="text-green-400 font-bold text-lg">
+                  {/* PRICE + ACTIONS */}
+                  <div className="flex justify-between items-center">
+                    <div className="text-green-400 font-bold text-2xl">
                       {b.total_price.toLocaleString("vi-VN")} đ
                     </div>
 
@@ -350,9 +309,9 @@ export default function BookingsAdmin() {
                           setModalMode("edit");
                           setModalOpen(true);
                         }}
-                        className="p-2 rounded hover:bg-slate-700"
+                        className="p-2 rounded-lg hover:bg-slate-700 transition"
                       >
-                        <HiPencil />
+                        <HiPencil className="text-slate-200" />
                       </button>
 
                       <button
@@ -360,7 +319,7 @@ export default function BookingsAdmin() {
                           e.stopPropagation();
                           handleDelete(b.id);
                         }}
-                        className="p-2 rounded hover:bg-red-700 text-red-300 hover:text-white"
+                        className="p-2 rounded-lg hover:bg-red-600/70 text-red-400 hover:text-white transition"
                       >
                         <HiTrash />
                       </button>
@@ -374,7 +333,7 @@ export default function BookingsAdmin() {
         ))}
       </div>
 
-      {/* LOADING OVERLAY */}
+      {/* OVERLAYS */}
       {(loadingPage || loadingDelete) && (
         <div className="fixed inset-0 bg-black/30 flex justify-center items-center z-[999]">
           <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -415,7 +374,16 @@ export default function BookingsAdmin() {
    MOBILE ACCORDION
 =========================================================================== */
 
-function MobileAccordionDay({ date, items, formatDateVN, openViewModal, openEditModal, handleDelete }) {
+function MobileAccordionDay({
+  date,
+  items,
+  formatDateVN,
+  openViewModal,
+  openEditModal,
+  handleDelete,
+  getRouteName,
+  getCarName
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -437,8 +405,9 @@ function MobileAccordionDay({ date, items, formatDateVN, openViewModal, openEdit
               className="bg-slate-800 border border-slate-700 rounded-xl p-4 cursor-pointer hover:border-slate-500 transition"
             >
               <div className="font-semibold text-lg">{b.full_name}</div>
+
               <div className="text-slate-400 text-sm">
-                {b.route} • {b.car_type}
+                {getRouteName(b.route)} • {getCarName(b.car_type)}
               </div>
 
               <div className="text-sm mt-2">
@@ -447,7 +416,9 @@ function MobileAccordionDay({ date, items, formatDateVN, openViewModal, openEdit
               </div>
 
               <div className="flex justify-between items-center mt-4">
-                <div className="text-green-400 font-bold">{b.total_price.toLocaleString("vi-VN")} đ</div>
+                <div className="text-green-400 font-bold">
+                  {b.total_price.toLocaleString("vi-VN")} đ
+                </div>
 
                 <div className="flex gap-3">
                   <button
@@ -479,7 +450,6 @@ function MobileAccordionDay({ date, items, formatDateVN, openViewModal, openEdit
     </div>
   );
 }
-
 
 
 /* =========================================================================
@@ -518,20 +488,20 @@ function ModalViewEdit({
         <div className="space-y-3 text-sm">
 
           <Field label="Họ tên" readOnly={readOnly} value={form.full_name}
-            onChange={v => setForm({ ...form, full_name: v })} />
+            onChange={(v) => setForm({ ...form, full_name: v })} />
 
           <Field label="Số điện thoại" readOnly={readOnly} value={form.phone}
-            onChange={v => setForm({ ...form, phone: v })} />
+            onChange={(v) => setForm({ ...form, phone: v })} />
 
           <Field label="Email" readOnly={readOnly} value={form.email}
-            onChange={v => setForm({ ...form, email: v })} />
+            onChange={(v) => setForm({ ...form, email: v })} />
 
           {/* TUYẾN ĐƯỜNG */}
           <SelectField
             label="Tuyến đường"
             readOnly={readOnly}
             value={form.route}
-            onChange={(value) => setForm({ ...form, route: value })}
+            onChange={(v) => setForm({ ...form, route: v })}
             options={routes.map((r) => ({ value: r.code, label: r.name }))}
           />
 
@@ -540,55 +510,31 @@ function ModalViewEdit({
             label="Loại xe"
             readOnly={readOnly}
             value={form.car_type}
-            onChange={(value) => setForm({ ...form, car_type: value })}
+            onChange={(v) => setForm({ ...form, car_type: v })}
             options={cars.map((c) => ({
               value: c.code,
-              label: `${c.code} • ${c.seat_count} chỗ • ${c.base_price.toLocaleString("vi-VN")} đ`
+              label: c.name_vi
             }))}
           />
 
           <Field label="Điểm đón" readOnly={readOnly} value={form.pickup_place}
-            onChange={v => setForm({ ...form, pickup_place: v })} />
+            onChange={(v) => setForm({ ...form, pickup_place: v })} />
 
           <Field label="Điểm trả" readOnly={readOnly} value={form.dropoff_place}
-            onChange={v => setForm({ ...form, dropoff_place: v })} />
+            onChange={(v) => setForm({ ...form, dropoff_place: v })} />
 
-          {/* NGÀY & GIỜ */}
-          <InputDateTime
-            label="Ngày đi"
-            type="date"
-            readOnly={readOnly}
-            value={form.date}
-            onChange={(v) => setForm({ ...form, date: v })}
-          />
+          <InputDateTime label="Ngày đi" type="date" readOnly={readOnly} value={form.date}
+            onChange={(v) => setForm({ ...form, date: v })} />
 
-          <InputDateTime
-            label="Giờ đi"
-            type="time"
-            readOnly={readOnly}
-            value={form.time}
-            onChange={(v) => setForm({ ...form, time: v })}
-          />
+          <InputDateTime label="Giờ đi" type="time" readOnly={readOnly} value={form.time}
+            onChange={(v) => setForm({ ...form, time: v })} />
 
-          {/* NGÀY KHỨ HỒI */}
-          <InputDateTime
-            label="Ngày về (khứ hồi)"
-            type="date"
-            readOnly={readOnly}
-            value={form.return_date}
-            onChange={(v) => setForm({ ...form, return_date: v })}
-          />
+          <InputDateTime label="Ngày về (khứ hồi)" type="date" readOnly={readOnly} value={form.return_date}
+            onChange={(v) => setForm({ ...form, return_date: v })} />
 
-          {/* GIỜ KHỨ HỒI */}
-          <InputDateTime
-            label="Giờ về (khứ hồi)"
-            type="time"
-            readOnly={readOnly}
-            value={form.return_time}
-            onChange={(v) => setForm({ ...form, return_time: v })}
-          />
+          <InputDateTime label="Giờ về (khứ hồi)" type="time" readOnly={readOnly} value={form.return_time}
+            onChange={(v) => setForm({ ...form, return_time: v })} />
 
-          {/* TL TX + XE */}
           <SelectField
             label="Tài xế"
             readOnly={readOnly}
@@ -622,19 +568,12 @@ function ModalViewEdit({
 
           <Field label="Ghi chú" readOnly={readOnly} value={form.note}
             onChange={(v) => setForm({ ...form, note: v })} />
-
         </div>
 
-        {/* BUTTONS */}
         <div className="flex justify-end gap-2 mt-5">
-          <button className="px-4 py-2 bg-slate-600 rounded"
-            onClick={() => setModalOpen(false)}>
-            Đóng
-          </button>
-
+          <button className="px-4 py-2 bg-slate-600 rounded" onClick={() => setModalOpen(false)}>Đóng</button>
           {modalMode !== "view" && (
-            <button className="px-4 py-2 bg-blue-600 rounded"
-              onClick={handleSave}>
+            <button className="px-4 py-2 bg-blue-600 rounded" onClick={handleSave}>
               Lưu
             </button>
           )}
@@ -654,15 +593,10 @@ function Field({ label, readOnly, value, onChange }) {
   return (
     <div>
       <label className="text-xs mb-1 block">{label}</label>
-
       {readOnly ? (
         <div className="p-2 bg-slate-700 rounded">{value || "—"}</div>
       ) : (
-        <input
-          className="w-full p-2 bg-slate-700 rounded"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-        />
+        <input className="w-full p-2 bg-slate-700 rounded" value={value} onChange={(e) => onChange(e.target.value)} />
       )}
     </div>
   );
@@ -672,16 +606,10 @@ function InputDateTime({ label, type, readOnly, value, onChange }) {
   return (
     <div>
       <label className="text-xs mb-1 block">{label}</label>
-
       {readOnly ? (
         <div className="p-2 bg-slate-700 rounded">{value || "—"}</div>
       ) : (
-        <input
-          type={type}
-          className="w-full p-2 bg-slate-700 rounded"
-          value={value || ""}
-          onChange={(e) => onChange(e.target.value)}
-        />
+        <input type={type} className="w-full p-2 bg-slate-700 rounded" value={value || ""} onChange={(e) => onChange(e.target.value)} />
       )}
     </div>
   );
@@ -691,17 +619,12 @@ function SelectField({ label, readOnly, value, onChange, options }) {
   return (
     <div>
       <label className="text-xs mb-1 block">{label}</label>
-
       {readOnly ? (
         <div className="p-2 bg-slate-700 rounded">
           {options.find((o) => o.value === value)?.label || "—"}
         </div>
       ) : (
-        <select
-          className="w-full p-2 bg-slate-700 rounded"
-          value={value || ""}
-          onChange={(e) => onChange(e.target.value)}
-        >
+        <select className="w-full p-2 bg-slate-700 rounded" value={value || ""} onChange={(e) => onChange(e.target.value)}>
           <option value="">— Chọn —</option>
           {options.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>

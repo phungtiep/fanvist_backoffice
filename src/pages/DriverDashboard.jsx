@@ -42,6 +42,9 @@ export default function DriverDashboard() {
 
   const [modalTrip, setModalTrip] = useState(null);
 
+  /* ⭐ ROUTES DATA */
+  const [routes, setRoutes] = useState([]);
+
   /* ========================= HELPERS ========================= */
 
   const safe = (v, fallback = "") =>
@@ -55,6 +58,23 @@ export default function DriverDashboard() {
   }
 
   const today = new Date().toISOString().slice(0, 10);
+
+  /* ⭐ MAP route code → route.name */
+  function getRouteName(code) {
+    const r = routes.find((x) => x.code === code);
+    return r ? r.name_vi || r.name || code : code;
+  }
+
+  /* ========================= LOAD ROUTES ========================= */
+  async function loadRoutes() {
+    try {
+      const res = await fetch("/api/routes");
+      const json = await res.json();
+      if (json.routes) setRoutes(json.routes);
+    } catch (err) {
+      console.error("Load routes error:", err);
+    }
+  }
 
   /* ========================= LOAD TRIPS ========================= */
   async function loadTrips() {
@@ -113,7 +133,6 @@ export default function DriverDashboard() {
 
       const cleaned = json.filter((row) => row.date);
 
-      // SORT BASE LIST
       cleaned.sort((a, b) => {
         if (a.date === today) return -1;
         if (b.date === today) return 1;
@@ -127,6 +146,7 @@ export default function DriverDashboard() {
   }
 
   useEffect(() => {
+    loadRoutes();   // ⭐ load routes first
     loadTrips();
     loadSalary();
   }, []);
@@ -168,7 +188,6 @@ export default function DriverDashboard() {
       }, {})
     );
 
-    // SORT INSIDE SALARY GROUP
     groupedByMonth[month].sort((a, b) => {
       if (a.date === today) return -1;
       if (b.date === today) return 1;
@@ -284,13 +303,12 @@ export default function DriverDashboard() {
                           className="p-4 rounded-lg bg-slate-800 border border-slate-700 cursor-pointer hover:bg-slate-700"
                           onClick={() => setModalTrip(b)}
                         >
-                          <div className="flex justify-between">
-                            <div>
-                              <div className="text-lg font-semibold">{b.route}</div>
-                              <div className="text-slate-400 text-sm">
-                                {b.time} • {b.total_price.toLocaleString("vi-VN")} đ
-                              </div>
-                            </div>
+                          <div className="text-lg font-semibold">
+                            {getRouteName(b.route)}   {/* ⭐ đổi route */}
+                          </div>
+
+                          <div className="text-slate-400 text-sm">
+                            {b.time} • {b.total_price.toLocaleString("vi-VN")} đ
                           </div>
                         </div>
                       ))}
@@ -415,7 +433,7 @@ export default function DriverDashboard() {
                                   onClick={() => setModalTrip(t)}
                                 >
                                   <div className="text-lg font-semibold">
-                                    {t.route}
+                                    {getRouteName(t.route)}
                                   </div>
                                   <div className="text-slate-400">
                                     {t.time} •{" "}
@@ -448,7 +466,7 @@ export default function DriverDashboard() {
               <HiX />
             </button>
 
-            <h2 className="text-2xl font-bold mb-4">{modalTrip.route}</h2>
+            <h2 className="text-2xl font-bold mb-4">{getRouteName(modalTrip.route)}</h2>
 
             <div className="space-y-4 text-sm">
 

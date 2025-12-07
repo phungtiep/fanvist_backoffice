@@ -14,6 +14,7 @@ export default function ScheduleCalendar() {
     const [bookings, setBookings] = useState([]);
     const [drivers, setDrivers] = useState([]);
     const [vehicles, setVehicles] = useState([]);
+    const [routesData, setRoutesData] = useState([]); // ⭐ thêm state routes
 
     const [loading, setLoading] = useState(true);
     const [toast, setToast] = useState(null);
@@ -106,6 +107,20 @@ export default function ScheduleCalendar() {
         setVehicles(dVehicles || []);
     }
 
+    async function loadRoutes() {
+        const { data, error } = await supabase
+            .from("routes")
+            .select("code, name")
+            .order("name");
+
+        if (error) {
+            console.error(error);
+            return;
+        }
+
+        setRoutesData(data || []);
+    }
+
     async function loadBookings() {
         setLoading(true);
         const { from, to } = getMonthRange(currentMonth);
@@ -131,6 +146,7 @@ export default function ScheduleCalendar() {
 
     useEffect(() => {
         loadDriversAndVehicles();
+        loadRoutes(); // ⭐ load routes khi mount
     }, []);
 
     useEffect(() => {
@@ -152,6 +168,12 @@ export default function ScheduleCalendar() {
         const v = vehicles.find((x) => x.id === id);
         if (!v) return "Không rõ xe";
         return [v.plate_number, v.brand, v.model].filter(Boolean).join(" • ");
+    }
+
+    function getRouteName(code) {
+        if (!code) return "Không rõ tuyến";
+        const r = routesData.find((x) => x.code === code);
+        return r ? r.name : code;
     }
 
     function openAssignModal(b) {
@@ -379,7 +401,7 @@ export default function ScheduleCalendar() {
                                     >
                                         <div className="flex items-center gap-1">
                                             <span className="text-emerald-300 font-semibold">{b.time}</span>
-                                            <span className="truncate flex-1">{b.route}</span>
+                                            <span className="truncate flex-1">{getRouteName(b.route)}</span>
                                         </div>
 
                                         <div className="truncate text-slate-400">
@@ -436,7 +458,7 @@ export default function ScheduleCalendar() {
                             </div>
 
                             <div className="text-slate-300 mt-1">
-                                {selectedBooking.route} • {selectedBooking.car_type}
+                                {getRouteName(selectedBooking.route)} • {selectedBooking.car_type}
                             </div>
 
                             <div className="text-slate-400 text-sm mt-1">
