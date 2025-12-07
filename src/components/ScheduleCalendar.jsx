@@ -294,17 +294,11 @@ export default function ScheduleCalendar() {
                 companyProfit: company_profit,
             };
 
-            const webhookUrl = import.meta.env.VITE_SEND_EMAIL_DRIVER_WEBHOOK_URL;
-
-            if (webhookUrl) {
-                await fetch(webhookUrl, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload),
-                });
-            } else {
-                console.warn("Webhook URL chưa cấu hình (.env)");
-            }
+            await fetch("/api/sendnotidriver", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
         } catch (err) {
             console.error("Webhook error:", err);
         }
@@ -419,11 +413,10 @@ export default function ScheduleCalendar() {
                         >
                             <div className="flex items-center justify-between mb-1">
                                 <div
-                                    className={`w-7 h-7 flex items-center justify-center rounded-full text-xs ${
-                                        isToday
+                                    className={`w-7 h-7 flex items-center justify-center rounded-full text-xs ${isToday
                                             ? "bg-blue-500 text-white"
                                             : "text-slate-300"
-                                    }`}
+                                        }`}
                                 >
                                     {day.getDate()}
                                 </div>
@@ -435,20 +428,17 @@ export default function ScheduleCalendar() {
                                         key={b.id}
                                         onClick={() => openAssignModal(b)}
                                         className={`w-full px-2 py-1 text-[10px] border border-slate-700/70 text-left rounded
-                                            ${
-                                                b.multi
-                                                    ? "bg-blue-900/50"
-                                                    : "bg-slate-800/80"
+                                            ${b.multi
+                                                ? "bg-blue-900/50"
+                                                : "bg-slate-800/80"
                                             }
-                                            ${
-                                                b.isStart
-                                                    ? "rounded-l-lg border-l-4 border-l-emerald-400"
-                                                    : ""
+                                            ${b.isStart
+                                                ? "rounded-l-lg border-l-4 border-l-emerald-400"
+                                                : ""
                                             }
-                                            ${
-                                                b.isEnd
-                                                    ? "rounded-r-lg border-r-4 border-r-emerald-400"
-                                                    : ""
+                                            ${b.isEnd
+                                                ? "rounded-r-lg border-r-4 border-r-emerald-400"
+                                                : ""
                                             }
                                             hover:bg-slate-700/80
                                         `}
@@ -482,11 +472,10 @@ export default function ScheduleCalendar() {
             {/* TOAST */}
             {toast && (
                 <div
-                    className={`fixed top-5 right-5 px-4 py-2 rounded shadow-lg text-white z-50 ${
-                        toast.type === "success"
+                    className={`fixed top-5 right-5 px-4 py-2 rounded shadow-lg text-white z-50 ${toast.type === "success"
                             ? "bg-green-600"
                             : "bg-red-600"
-                    }`}
+                        }`}
                 >
                     {toast.message}
                 </div>
@@ -526,8 +515,8 @@ export default function ScheduleCalendar() {
                                 {selectedBooking.time}
                                 {selectedBooking.return_date
                                     ? ` • Về: ${formatDateVN(
-                                          selectedBooking.return_date
-                                      )}`
+                                        selectedBooking.return_date
+                                    )}`
                                     : ""}
                             </div>
                         </div>
