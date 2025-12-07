@@ -14,7 +14,7 @@ export default function ScheduleCalendar() {
     const [bookings, setBookings] = useState([]);
     const [drivers, setDrivers] = useState([]);
     const [vehicles, setVehicles] = useState([]);
-    const [routesData, setRoutesData] = useState([]); // ⭐ thêm state routes
+    const [routesData, setRoutesData] = useState([]); // routes
 
     const [loading, setLoading] = useState(true);
     const [toast, setToast] = useState(null);
@@ -37,7 +37,9 @@ export default function ScheduleCalendar() {
 
     function formatDateVN(dateStr) {
         const d = new Date(dateStr);
-        return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+        return `${String(d.getDate()).padStart(2, "0")}/${String(
+            d.getMonth() + 1
+        ).padStart(2, "0")}/${d.getFullYear()}`;
     }
 
     function showToast(message, type = "success") {
@@ -146,7 +148,7 @@ export default function ScheduleCalendar() {
 
     useEffect(() => {
         loadDriversAndVehicles();
-        loadRoutes(); // ⭐ load routes khi mount
+        loadRoutes(); // load routes khi mount
     }, []);
 
     useEffect(() => {
@@ -161,6 +163,11 @@ export default function ScheduleCalendar() {
         if (!id) return "Chưa phân công";
         const d = drivers.find((x) => x.id === id);
         return d?.full_name || d?.phone || "Không rõ";
+    }
+
+    function getDriverById(id) {
+        if (!id) return null;
+        return drivers.find((x) => x.id === id) || null;
     }
 
     function getVehicleLabel(id) {
@@ -185,7 +192,7 @@ export default function ScheduleCalendar() {
     }
 
     /* ============================================================
-       SAVE ASSIGN (INSERT OR UPDATE)
+       SAVE ASSIGN (INSERT OR UPDATE) + GỬI WEBHOOK
     ============================================================ */
 
     async function handleSaveAssign() {
@@ -249,10 +256,61 @@ export default function ScheduleCalendar() {
             return;
         }
 
+        // Cập nhật booking
         await supabase
             .from("bookings")
             .update({ driver_id: driverId, vehicle_id: vehicleId })
             .eq("id", bookingId);
+
+        // GỬI WEBHOOK / GOOGLE SCRIPT (gửi email cho tài xế)
+        try {
+            const driverInfo = getDriverById(driverId);
+            const routeName = getRouteName(selectedBooking.route);
+            const vehicleLabel = getVehicleLabel(vehicleId);
+
+            // payload khớp với Google Apps Script bạn đã viết lại
+            const payload = {
+                driverName: driverInfo?.full_name || "",
+                driverEmail: driverInfo?.email || "",
+                customerName: selectedBooking.full_name,
+                customerPhone: selectedBooking.phone,
+                customerEmail: selectedBooking.email,
+                routeName: routeName,
+                carName: selectedBooking.car_type,
+                vehiclePlate: vehicleLabel,
+                pickupPlace: selectedBooking.pickup_place,
+                dropoffPlace: selectedBooking.dropoff_place,
+                date: formatDateVN(selectedBooking.date),
+                time: selectedBooking.time,
+                returnDate: selectedBooking.return_date
+                    ? formatDateVN(selectedBooking.return_date)
+                    : "",
+                returnTime: selectedBooking.return_time,
+                roundTrip: selectedBooking.round_trip,
+                note: selectedBooking.note,
+                totalPrice: total,
+                driverPay: driver_pay,
+                companyProfit: company_profit,
+            };
+
+            // URL webhook: thay bằng URL Google Script deploy của bạn
+            const webhookUrl =
+                import.meta?.env?.VITE_DRIVER_ASSIGN_WEBHOOK ||
+                process.env.SEND_EMAIL_DRIVER_WEBHOOK_URL ||
+                "";
+
+            if (webhookUrl) {
+                await fetch(webhookUrl, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                });
+            } else {
+                console.warn("Webhook URL chưa được cấu hình.");
+            }
+        } catch (err) {
+            console.error("Lỗi gửi webhook phân công:", err);
+        }
 
         setSaving(false);
         setSelectedBooking(null);
@@ -462,8 +520,10 @@ export default function ScheduleCalendar() {
                             </div>
 
                             <div className="text-slate-400 text-sm mt-1">
-                                Đi: {formatDateVN(selectedBooking.date)} 
-                                {selectedBooking.return_date ? ` • Về: ${formatDateVN(selectedBooking.return_date)}` : ""}
+                                Đi: {formatDateVN(selectedBooking.date)}
+                                {selectedBooking.return_date
+                                    ? ` • Về: ${formatDateVN(selectedBooking.return_date)}`
+                                    : ""}
                                 • Giờ: {selectedBooking.time}
                             </div>
                         </div>
@@ -472,7 +532,12 @@ export default function ScheduleCalendar() {
                             <label className="text-sm text-slate-300">Tài xế</label>
                             <select
                                 value={selectedBooking.driver_id}
-                                onChange={(e) => setSelectedBooking({ ...selectedBooking, driver_id: e.target.value })}
+                                onChange={(e) =>
+                                    setSelectedBooking({
+                                        ...selectedBooking,
+                                        driver_id: e.target.value,
+                                    })
+                                }
                                 className="w-full p-2 rounded bg-[#0c1322] border border-slate-600 mt-1"
                             >
                                 <option value="">— Chưa phân công —</option>
@@ -488,7 +553,12 @@ export default function ScheduleCalendar() {
                             <label className="text-sm text-slate-300">Xe</label>
                             <select
                                 value={selectedBooking.vehicle_id}
-                                onChange={(e) => setSelectedBooking({ ...selectedBooking, vehicle_id: e.target.value })}
+                                onChange={(e) =>
+                                    setSelectedBooking({
+                                        ...selectedBooking,
+                                        vehicle_id: e.target.value,
+                                    })
+                                }
                                 className="w-full p-2 rounded bg-[#0c1322] border border-slate-600 mt-1"
                             >
                                 <option value="">— Chưa gán xe —</option>
