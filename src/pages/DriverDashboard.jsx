@@ -45,11 +45,9 @@ export default function DriverDashboard() {
   /* ⭐ ROUTES DATA */
   const [routes, setRoutes] = useState([]);
 
+  const today = new Date().toISOString().slice(0, 10);
+
   /* ========================= HELPERS ========================= */
-
-  const safe = (v, fallback = "") =>
-    v === null || v === undefined ? fallback : v;
-
   function formatDateVN(dateStr) {
     if (!dateStr) return "--/--/----";
     const d = new Date(dateStr);
@@ -57,9 +55,6 @@ export default function DriverDashboard() {
     return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
   }
 
-  const today = new Date().toISOString().slice(0, 10);
-
-  /* ⭐ MAP route code → route.name */
   function getRouteName(code) {
     const r = routes.find((x) => x.code === code);
     return r ? r.name_vi || r.name || code : code;
@@ -86,7 +81,6 @@ export default function DriverDashboard() {
 
       const cleaned = json.filter((row) => row.date);
 
-      // SORT BY DATE + today priority
       cleaned.sort((a, b) => {
         if (a.date === today) return -1;
         if (b.date === today) return 1;
@@ -95,7 +89,6 @@ export default function DriverDashboard() {
 
       setAssignments(cleaned);
 
-      // GROUP BY DATE
       const grouped = cleaned.reduce((acc, b) => {
         const d = b.date;
         if (!acc[d]) acc[d] = [];
@@ -103,7 +96,6 @@ export default function DriverDashboard() {
         return acc;
       }, {});
 
-      // SORT keys + today first
       const sortedGrouped = Object.fromEntries(
         Object.entries(grouped).sort(([d1], [d2]) => {
           if (d1 === today) return -1;
@@ -114,10 +106,16 @@ export default function DriverDashboard() {
 
       setGroupedAssignments(sortedGrouped);
 
-      // MONTH LIST
       const months = [...new Set(cleaned.map((b) => b.date.slice(0, 7)))].sort();
-      if (!selectedTripMonth && months.length > 0)
-        setSelectedTripMonth(months[0]);
+
+      if (!selectedTripMonth) {
+        const currentMonth = new Date().toISOString().slice(0, 7);
+        if (months.includes(currentMonth)) {
+          setSelectedTripMonth(currentMonth);
+        } else {
+          setSelectedTripMonth(months.at(-1));
+        }
+      }
     } catch (e) {
       console.error("Trips API error:", e);
     }
@@ -140,13 +138,24 @@ export default function DriverDashboard() {
       });
 
       setSalaryList(cleaned);
+
+      const salaryMonths = [
+        ...new Set(cleaned.map((b) => b.date.slice(0, 7))),
+      ].sort();
+
+      if (!selectedMonth) {
+        const current = new Date().toISOString().slice(0, 7);
+        if (salaryMonths.includes(current)) setSelectedMonth(current);
+        else setSelectedMonth(salaryMonths.at(-1));
+      }
     } catch (e) {
       console.error("Salary API error:", e);
     }
   }
 
+  /* ========================= INIT ========================= */
   useEffect(() => {
-    loadRoutes();   // ⭐ load routes first
+    loadRoutes();
     loadTrips();
     loadSalary();
   }, []);
@@ -155,7 +164,7 @@ export default function DriverDashboard() {
     if (tab === "salary") loadSalary();
   }, [tab]);
 
-  /* ========================= GROUP TRIPS BY MONTH ========================= */
+  /* ========================= GROUPING ========================= */
   const tripsByMonth = assignments.reduce((acc, b) => {
     const m = b.date.slice(0, 7);
     if (!acc[m]) acc[m] = [];
@@ -163,7 +172,6 @@ export default function DriverDashboard() {
     return acc;
   }, {});
 
-  /* ========================= GROUP SALARY MONTH->DAY ========================= */
   const groupedByMonth = salaryList.reduce((acc, b) => {
     const m = b.date.slice(0, 7);
     if (!acc[m]) acc[m] = [];
@@ -197,12 +205,6 @@ export default function DriverDashboard() {
 
   const sortedMonths = Object.keys(groupedByMonth).sort();
 
-  useEffect(() => {
-    if (sortedMonths.length > 0 && !selectedMonth) {
-      setSelectedMonth(sortedMonths[0]);
-    }
-  }, [salaryList]);
-
   /* ========================= LOGOUT ========================= */
   function logout() {
     localStorage.removeItem("driver");
@@ -213,10 +215,9 @@ export default function DriverDashboard() {
   return (
     <div className="min-h-screen bg-slate-900 text-white p-6">
 
-      {/* HEADER */}
+      {/* ================= HEADER ================= */}
       <div className="mb-8">
         <div className="flex items-center gap-4 bg-gradient-to-r from-emerald-600 to-emerald-500 p-4 rounded-2xl shadow-lg">
-
           <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-white shadow">
             <img src={driver.avatar_url} alt="avatar" className="w-full h-full object-cover" />
           </div>
@@ -236,30 +237,36 @@ export default function DriverDashboard() {
         </div>
       </div>
 
-      {/* TABS */}
+      {/* ================= TABS ================= */}
       <div className="flex gap-3 mb-6">
         <button
-          className={`flex-1 px-4 py-3 rounded-xl font-semibold shadow
-            ${tab === "trips" ? "bg-emerald-600 text-white shadow-lg" : "bg-slate-800 text-slate-300"}`}
+          className={`flex-1 px-4 py-3 rounded-xl font-semibold shadow ${
+            tab === "trips"
+              ? "bg-emerald-600 text-white shadow-lg"
+              : "bg-slate-800 text-slate-300"
+          }`}
           onClick={() => setTab("trips")}
         >
           📅 Chuyến được phân công
         </button>
 
         <button
-          className={`flex-1 px-4 py-3 rounded-xl font-semibold shadow
-            ${tab === "salary" ? "bg-emerald-600 text-white shadow-lg" : "bg-slate-800 text-slate-300"}`}
+          className={`flex-1 px-4 py-3 rounded-xl font-semibold shadow ${
+            tab === "salary"
+              ? "bg-emerald-600 text-white shadow-lg"
+              : "bg-slate-800 text-slate-300"
+          }`}
           onClick={() => setTab("salary")}
         >
           💰 Bảng lương
         </button>
       </div>
 
-      {/* ========================= TRIPS ========================= */}
+      {/* ================ TRIPS LIST ================ */}
       {tab === "trips" && (
         <div className="space-y-4">
 
-          {/* FILTER MONTH */}
+          {/* MONTH FILTER */}
           {Object.keys(tripsByMonth).length > 0 && (
             <select
               className="bg-slate-800 border border-slate-700 p-3 rounded-xl mb-4"
@@ -274,7 +281,6 @@ export default function DriverDashboard() {
             </select>
           )}
 
-          {/* LIST */}
           {selectedTripMonth &&
             Object.entries(groupedAssignments)
               .filter(([date]) => date.startsWith(selectedTripMonth))
@@ -283,7 +289,9 @@ export default function DriverDashboard() {
 
                   <button
                     className="w-full flex items-center justify-between p-4 bg-slate-800"
-                    onClick={() => setOpenDay((prev) => ({ ...prev, [date]: !prev[date] }))}
+                    onClick={() =>
+                      setOpenDay((prev) => ({ ...prev, [date]: !prev[date] }))
+                    }
                   >
                     <div className="flex items-center gap-3">
                       <HiOutlineCalendar className="text-2xl text-red-300" />
@@ -304,7 +312,7 @@ export default function DriverDashboard() {
                           onClick={() => setModalTrip(b)}
                         >
                           <div className="text-lg font-semibold">
-                            {getRouteName(b.route)}   {/* ⭐ đổi route */}
+                            {getRouteName(b.route)}
                           </div>
 
                           <div className="text-slate-400 text-sm">
@@ -319,7 +327,7 @@ export default function DriverDashboard() {
         </div>
       )}
 
-      {/* ========================= SALARY ========================= */}
+      {/* ================ SALARY ================ */}
       {tab === "salary" && (
         <div className="space-y-6">
 
@@ -341,7 +349,6 @@ export default function DriverDashboard() {
             <div className="text-slate-400">Chưa có lương được duyệt.</div>
           )}
 
-          {/* SUMMARY */}
           {selectedMonth && groupedByMonth[selectedMonth] && (
             <div className="p-5 rounded-xl bg-gradient-to-br from-slate-800 to-slate-700 border border-slate-600 shadow-lg">
               <h3 className="text-xl font-bold mb-3">
@@ -388,7 +395,6 @@ export default function DriverDashboard() {
             </div>
           )}
 
-          {/* TABLE */}
           {selectedMonth && (
             <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
               <table className="w-full text-left">
@@ -454,7 +460,7 @@ export default function DriverDashboard() {
         </div>
       )}
 
-      {/* ========================= POPUP ========================= */}
+      {/* ================ POPUP ================= */}
       {modalTrip && (
         <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-50 p-4">
           <div className="bg-slate-800 w-full max-w-lg rounded-xl p-6 relative border border-slate-600">
@@ -466,7 +472,9 @@ export default function DriverDashboard() {
               <HiX />
             </button>
 
-            <h2 className="text-2xl font-bold mb-4">{getRouteName(modalTrip.route)}</h2>
+            <h2 className="text-2xl font-bold mb-4">
+              {getRouteName(modalTrip.route)}
+            </h2>
 
             <div className="space-y-4 text-sm">
 
@@ -479,8 +487,25 @@ export default function DriverDashboard() {
                 <HiPhone />
                 <span>SĐT: {modalTrip.phone}</span>
 
+                <a
+                  href={`tel:${modalTrip.phone}`}
+                  className="p-2 bg-green-600 hover:bg-green-500 rounded text-white text-sm"
+                >
+                  📞 Gọi
+                </a>
+
+                <a
+                  href={`https://zalo.me/${modalTrip.phone}`}
+                  target="_blank"
+                  className="p-2 bg-blue-600 hover:bg-blue-500 rounded text-white text-sm"
+                >
+                  💬 Zalo
+                </a>
+
                 <button
-                  onClick={() => navigator.clipboard.writeText(modalTrip.phone)}
+                  onClick={() =>
+                    navigator.clipboard.writeText(modalTrip.phone)
+                  }
                   className="p-2 bg-slate-700 hover:bg-slate-600 rounded"
                 >
                   <HiClipboardCopy />
@@ -501,6 +526,18 @@ export default function DriverDashboard() {
                 <HiLocationMarker />
                 <span>Điểm đón: {modalTrip.pickup_place || "—"}</span>
               </div>
+
+              {modalTrip.pickup_place && (
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                    modalTrip.pickup_place
+                  )}`}
+                  target="_blank"
+                  className="block mt-1 bg-emerald-600 hover:bg-emerald-500 px-3 py-2 rounded text-center text-white text-sm"
+                >
+                  📍 Mở Google Maps dẫn đường
+                </a>
+              )}
 
               <div className="flex items-center gap-3">
                 <HiLocationMarker />
@@ -526,7 +563,6 @@ export default function DriverDashboard() {
           </div>
         </div>
       )}
-
     </div>
   );
 }
