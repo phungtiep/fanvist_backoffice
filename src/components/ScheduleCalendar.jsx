@@ -3,6 +3,9 @@ import { supabase } from "../lib/supabase.js";
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi2";
 import { useNavigate } from "react-router-dom";
 
+// ❌ KHÔNG DÙNG dotenv — React không hỗ trợ
+// import dotenv from "dotenv";
+// dotenv.config();
 
 export default function ScheduleCalendar() {
     const navigate = useNavigate();
@@ -15,7 +18,8 @@ export default function ScheduleCalendar() {
     const [bookings, setBookings] = useState([]);
     const [drivers, setDrivers] = useState([]);
     const [vehicles, setVehicles] = useState([]);
-    const [routesData, setRoutesData] = useState([]); // routes
+    const [routesData, setRoutesData] = useState([]);
+    const [cars, setCars] = useState([]);     // ⭐ THÊM: load car name
 
     const [loading, setLoading] = useState(true);
     const [toast, setToast] = useState(null);
@@ -27,39 +31,30 @@ export default function ScheduleCalendar() {
        HELPERS
     ============================================================ */
 
-    // Format chuẩn giờ VN, không bị lệch UTC
-    function formatLocalDate(date) {
-        return [
-            date.getFullYear(),
-            String(date.getMonth() + 1).padStart(2, "0"),
-            String(date.getDate()).padStart(2, "0")
-        ].join("-");
-    }
+    const formatLocalDate = (date) =>
+        `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
-    function formatDateVN(dateStr) {
+    const formatDateVN = (dateStr) => {
         const d = new Date(dateStr);
         return `${String(d.getDate()).padStart(2, "0")}/${String(
             d.getMonth() + 1
         ).padStart(2, "0")}/${d.getFullYear()}`;
-    }
+    };
 
-    function showToast(message, type = "success") {
+    const showToast = (message, type = "success") => {
         setToast({ message, type });
         setTimeout(() => setToast(null), 2500);
-    }
+    };
 
     function getMonthRange(date) {
         const y = date.getFullYear();
         const m = date.getMonth();
 
-        const start = new Date(y, m, 1);
-        const end = new Date(y, m + 1, 0);
-
         return {
-            from: formatLocalDate(start),
-            to: formatLocalDate(end),
-            start,
-            end,
+            from: formatLocalDate(new Date(y, m, 1)),
+            to: formatLocalDate(new Date(y, m + 1, 0)),
+            start: new Date(y, m, 1),
+            end: new Date(y, m + 1, 0),
         };
     }
 
@@ -69,7 +64,6 @@ export default function ScheduleCalendar() {
         const firstDay = start.getDay();
 
         for (let i = 0; i < firstDay; i++) days.push(null);
-
         for (let d = 1; d <= end.getDate(); d++) {
             days.push(new Date(start.getFullYear(), start.getMonth(), d));
         }
@@ -78,13 +72,12 @@ export default function ScheduleCalendar() {
     }
 
     /* ============================================================
-       MULTI-DAY EVENT FIX — không dùng toISOString()
+       MULTI DAY
     ============================================================ */
 
     function expandDates(b) {
         const start = new Date(b.date);
         const end = b.return_date ? new Date(b.return_date) : start;
-
         const arr = [];
         let cur = new Date(start);
 
@@ -92,7 +85,6 @@ export default function ScheduleCalendar() {
             arr.push(formatLocalDate(cur));
             cur.setDate(cur.getDate() + 1);
         }
-
         return arr;
     }
 
@@ -105,23 +97,21 @@ export default function ScheduleCalendar() {
             supabase.from("drivers").select("*").order("full_name"),
             supabase.from("vehicles").select("*").order("plate_number"),
         ]);
-
         setDrivers(dDrivers || []);
         setVehicles(dVehicles || []);
     }
 
     async function loadRoutes() {
-        const { data, error } = await supabase
-            .from("routes")
-            .select("code, name")
-            .order("name");
-
-        if (error) {
-            console.error(error);
-            return;
-        }
-
+        const { data } = await supabase.from("routes").select("code, name");
         setRoutesData(data || []);
+    }
+
+    async function loadCars() {
+        const { data } = await supabase
+            .from("cars")
+            .select("code, name_vi")
+            .order("seat_count");
+        setCars(data || []);
     }
 
     async function loadBookings() {
@@ -139,8 +129,7 @@ export default function ScheduleCalendar() {
         setLoading(false);
 
         if (error) {
-            console.error(error);
-            showToast("Không tải được dữ liệu booking", "error");
+            showToast("Không tải được booking", "error");
             return;
         }
 
@@ -149,7 +138,8 @@ export default function ScheduleCalendar() {
 
     useEffect(() => {
         loadDriversAndVehicles();
-        loadRoutes(); // load routes khi mount
+        loadRoutes();
+        loadCars();               // ⭐ LOAD CAR NAME
     }, []);
 
     useEffect(() => {
@@ -160,40 +150,39 @@ export default function ScheduleCalendar() {
        UI HELPERS
     ============================================================ */
 
-    function getDriverName(id) {
-        if (!id) return "Chưa phân công";
-        const d = drivers.find((x) => x.id === id);
-        return d?.full_name || d?.phone || "Không rõ";
-    }
+    const getDriverById = (id) =>
+        drivers.find((x) => x.id === id) || null;
 
-    function getDriverById(id) {
-        if (!id) return null;
-        return drivers.find((x) => x.id === id) || null;
-    }
+    const getDriverName = (id) => {
+        const d = getDriverById(id);
+        return d ? d.full_name : "Chưa phân công";
+    };
 
-    function getVehicleLabel(id) {
-        if (!id) return "Chưa gán xe";
+    const getVehicleLabel = (id) => {
         const v = vehicles.find((x) => x.id === id);
-        if (!v) return "Không rõ xe";
+        if (!v) return "Chưa gán xe";
         return [v.plate_number, v.brand, v.model].filter(Boolean).join(" • ");
-    }
+    };
 
-    function getRouteName(code) {
-        if (!code) return "Không rõ tuyến";
+    const getRouteName = (code) => {
         const r = routesData.find((x) => x.code === code);
         return r ? r.name : code;
-    }
+    };
 
-    function openAssignModal(b) {
+    const getCarName = (code) => {
+        const c = cars.find((x) => x.code === code);
+        return c ? c.name_vi : code;
+    };
+
+    const openAssignModal = (b) =>
         setSelectedBooking({
             ...b,
             driver_id: b.driver_id ?? "",
             vehicle_id: b.vehicle_id ?? "",
         });
-    }
 
     /* ============================================================
-       SAVE ASSIGN (INSERT OR UPDATE) + GỬI WEBHOOK
+       SAVE ASSIGN + SEND WEBHOOK
     ============================================================ */
 
     async function handleSaveAssign() {
@@ -210,22 +199,25 @@ export default function ScheduleCalendar() {
             .eq("booking_id", bookingId)
             .maybeSingle();
 
+        // Lấy % hoa hồng tài xế
         let commission = 70;
         if (driverId) {
-            const { data: info } = await supabase
+            const { data } = await supabase
                 .from("drivers")
                 .select("commission_percent")
                 .eq("id", driverId)
                 .single();
-            if (info?.commission_percent) commission = info.commission_percent;
+
+            if (data?.commission_percent)
+                commission = data.commission_percent;
         }
 
         const total = selectedBooking.total_price || 0;
         const driver_pay = driverId ? Math.round(total * (commission / 100)) : 0;
         const company_profit = total - driver_pay;
 
+        // Insert / update driver_assignments
         let error;
-
         if (!existing) {
             const res = await supabase.from("driver_assignments").insert({
                 booking_id: bookingId,
@@ -251,36 +243,43 @@ export default function ScheduleCalendar() {
         }
 
         if (error) {
-            console.error(error);
-            showToast("Không thể lưu phân công!", "error");
+            showToast("Không thể lưu!", "error");
             setSaving(false);
             return;
         }
 
-        // Cập nhật booking
         await supabase
             .from("bookings")
             .update({ driver_id: driverId, vehicle_id: vehicleId })
             .eq("id", bookingId);
 
-        // GỬI WEBHOOK / GOOGLE SCRIPT (gửi email cho tài xế)
+        /* ======================================================
+           SEND WEBHOOK EMAIL TO DRIVER
+        ====================================================== */
+
         try {
-            const driverInfo = getDriverById(driverId);
+            const driverInfo = getDriverById(driverId);  // ⭐ ALWAYS FULL DRIVER DATA
             const routeName = getRouteName(selectedBooking.route);
+            const carName = getCarName(selectedBooking.car_type);
             const vehicleLabel = getVehicleLabel(vehicleId);
 
-            // payload khớp với Google Apps Script bạn đã viết lại
             const payload = {
                 driverName: driverInfo?.full_name || "",
                 driverEmail: driverInfo?.email || "",
+                driverPhone: driverInfo?.phone || "",
+                driverCommission: driverInfo?.commission_percent || "",
+
                 customerName: selectedBooking.full_name,
                 customerPhone: selectedBooking.phone,
                 customerEmail: selectedBooking.email,
-                routeName: routeName,
-                carName: selectedBooking.car_type,
+
+                routeName,
+                carName,
                 vehiclePlate: vehicleLabel,
+
                 pickupPlace: selectedBooking.pickup_place,
                 dropoffPlace: selectedBooking.dropoff_place,
+
                 date: formatDateVN(selectedBooking.date),
                 time: selectedBooking.time,
                 returnDate: selectedBooking.return_date
@@ -288,13 +287,13 @@ export default function ScheduleCalendar() {
                     : "",
                 returnTime: selectedBooking.return_time,
                 roundTrip: selectedBooking.round_trip,
+
                 note: selectedBooking.note,
-                totalPrice: total,
+                totalPrice: selectedBooking.total_price,
                 driverPay: driver_pay,
                 companyProfit: company_profit,
             };
 
-            // URL webhook: thay bằng URL Google Script deploy của bạn
             const webhookUrl = import.meta.env.VITE_SEND_EMAIL_DRIVER_WEBHOOK_URL;
 
             if (webhookUrl) {
@@ -304,11 +303,13 @@ export default function ScheduleCalendar() {
                     body: JSON.stringify(payload),
                 });
             } else {
-                console.warn("Webhook URL chưa được cấu hình.");
+                console.warn("Webhook URL chưa cấu hình (.env)");
             }
         } catch (err) {
-            console.error("Lỗi gửi webhook phân công:", err);
+            console.error("Webhook error:", err);
         }
+
+        /* ====================================================== */
 
         setSaving(false);
         setSelectedBooking(null);
@@ -317,45 +318,22 @@ export default function ScheduleCalendar() {
     }
 
     /* ============================================================
-       NAVIGATION MONTH
+       CALENDAR UI
     ============================================================ */
-
-    function goPrevMonth() {
-        setCurrentMonth((prev) => {
-            const d = new Date(prev);
-            d.setMonth(d.getMonth() - 1);
-            return new Date(d.getFullYear(), d.getMonth(), 1);
-        });
-    }
-
-    function goNextMonth() {
-        setCurrentMonth((prev) => {
-            const d = new Date(prev);
-            d.setMonth(d.getMonth() + 1);
-            return new Date(d.getFullYear(), d.getMonth(), 1);
-        });
-    }
 
     const t = new Date();
     const todayStr = formatLocalDate(t);
     const days = buildCalendarDays(currentMonth);
 
-    /* ============================================================
-       BOOKING MAPPING (multi-day support)
-    ============================================================ */
-
     const bookingsByDate = {};
-
     bookings.forEach((b) => {
-        const expand = expandDates(b);
-
-        expand.forEach((dayStr) => {
+        expandDates(b).forEach((dayStr) => {
             if (!bookingsByDate[dayStr]) bookingsByDate[dayStr] = [];
             bookingsByDate[dayStr].push({
                 ...b,
                 isStart: dayStr === b.date,
                 isEnd: b.return_date ? dayStr === b.return_date : true,
-                multi: expand.length > 1,
+                multi: expandDates(b).length > 1,
             });
         });
     });
@@ -366,15 +344,14 @@ export default function ScheduleCalendar() {
     });
 
     /* ============================================================
-       UI RENDER
+       RENDER
     ============================================================ */
 
     return (
         <div className="p-4 text-slate-100 w-full mx-auto pb-20 bg-[#0a0f1a] min-h-screen">
-
             <button
                 onClick={() => navigate(-1)}
-                className="mb-4 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm flex items-center gap-2"
+                className="mb-4 px-4 py-2 bg-slate-700 rounded-lg"
             >
                 ← Quay lại
             </button>
@@ -382,20 +359,37 @@ export default function ScheduleCalendar() {
             <h1 className="text-2xl font-bold mb-2">Calendar phân công chuyến</h1>
 
             <div className="flex justify-center items-center gap-4 mb-4">
-                <button onClick={goPrevMonth} className="p-2 rounded bg-slate-700">
-                    <HiChevronLeft className="w-5 h-5" />
+                <button
+                    onClick={() =>
+                        setCurrentMonth((prev) => {
+                            const d = new Date(prev);
+                            d.setMonth(d.getMonth() - 1);
+                            return new Date(d.getFullYear(), d.getMonth(), 1);
+                        })
+                    }
+                    className="p-2 rounded bg-slate-700"
+                >
+                    <HiChevronLeft />
                 </button>
 
                 <div className="text-lg font-semibold">{monthLabel}</div>
 
-                <button onClick={goNextMonth} className="p-2 rounded bg-slate-700">
-                    <HiChevronRight className="w-5 h-5" />
+                <button
+                    onClick={() =>
+                        setCurrentMonth((prev) => {
+                            const d = new Date(prev);
+                            d.setMonth(d.getMonth() + 1);
+                            return new Date(d.getFullYear(), d.getMonth(), 1);
+                        })
+                    }
+                    className="p-2 rounded bg-slate-700"
+                >
+                    <HiChevronRight />
                 </button>
             </div>
 
             {/* CALENDAR GRID */}
             <div className="grid grid-cols-7 bg-[#0a0d1a] rounded-xl overflow-hidden border border-slate-700 w-full">
-
                 {["CN", "T2", "T3", "T4", "T5", "T6", "T7"].map((d) => (
                     <div
                         key={d}
@@ -421,43 +415,51 @@ export default function ScheduleCalendar() {
                     return (
                         <div
                             key={dateStr}
-                            className="
-                                border-r border-b border-slate-700 
-                                px-2 pt-2 relative
-                                h-auto
-                                sm:min-h-[200px]
-                                bg-[#0c1322]
-                            "
+                            className="border-r border-b border-slate-700 px-2 pt-2 bg-[#0c1322]"
                         >
                             <div className="flex items-center justify-between mb-1">
                                 <div
-                                    className={`
-                                        w-7 h-7 flex items-center justify-center rounded-full text-xs
-                                        ${isToday ? "bg-blue-500 text-white" : "text-slate-300"}
-                                    `}
+                                    className={`w-7 h-7 flex items-center justify-center rounded-full text-xs ${
+                                        isToday
+                                            ? "bg-blue-500 text-white"
+                                            : "text-slate-300"
+                                    }`}
                                 >
                                     {day.getDate()}
                                 </div>
                             </div>
 
                             <div className="space-y-1">
-
                                 {list.map((b) => (
                                     <button
                                         key={b.id}
                                         onClick={() => openAssignModal(b)}
-                                        className={`
-                                            w-full px-2 py-1 text-[10px] border border-slate-700/70 text-left
-                                            rounded 
-                                            ${b.multi ? "bg-blue-900/50" : "bg-slate-800/80"}
-                                            ${b.isStart ? "rounded-l-lg border-l-4 border-l-emerald-400" : ""}
-                                            ${b.isEnd ? "rounded-r-lg border-r-4 border-r-emerald-400" : ""}
+                                        className={`w-full px-2 py-1 text-[10px] border border-slate-700/70 text-left rounded
+                                            ${
+                                                b.multi
+                                                    ? "bg-blue-900/50"
+                                                    : "bg-slate-800/80"
+                                            }
+                                            ${
+                                                b.isStart
+                                                    ? "rounded-l-lg border-l-4 border-l-emerald-400"
+                                                    : ""
+                                            }
+                                            ${
+                                                b.isEnd
+                                                    ? "rounded-r-lg border-r-4 border-r-emerald-400"
+                                                    : ""
+                                            }
                                             hover:bg-slate-700/80
                                         `}
                                     >
                                         <div className="flex items-center gap-1">
-                                            <span className="text-emerald-300 font-semibold">{b.time}</span>
-                                            <span className="truncate flex-1">{getRouteName(b.route)}</span>
+                                            <span className="text-emerald-300 font-semibold">
+                                                {b.time}
+                                            </span>
+                                            <span className="truncate flex-1">
+                                                {getRouteName(b.route)}
+                                            </span>
                                         </div>
 
                                         <div className="truncate text-slate-400">
@@ -477,22 +479,23 @@ export default function ScheduleCalendar() {
                 })}
             </div>
 
+            {/* TOAST */}
+            {toast && (
+                <div
+                    className={`fixed top-5 right-5 px-4 py-2 rounded shadow-lg text-white z-50 ${
+                        toast.type === "success"
+                            ? "bg-green-600"
+                            : "bg-red-600"
+                    }`}
+                >
+                    {toast.message}
+                </div>
+            )}
+
             {/* LOADING */}
             {loading && (
                 <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
                     <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin" />
-                </div>
-            )}
-
-            {/* TOAST */}
-            {toast && (
-                <div
-                    className={`
-                        fixed top-5 right-5 px-4 py-2 rounded shadow-lg text-white z-50
-                        ${toast.type === "success" ? "bg-green-600" : "bg-red-600"}
-                    `}
-                >
-                    {toast.message}
                 </div>
             )}
 
@@ -514,18 +517,22 @@ export default function ScheduleCalendar() {
                             </div>
 
                             <div className="text-slate-300 mt-1">
-                                {getRouteName(selectedBooking.route)} • {selectedBooking.car_type}
+                                {getRouteName(selectedBooking.route)} •{" "}
+                                {getCarName(selectedBooking.car_type)}
                             </div>
 
                             <div className="text-slate-400 text-sm mt-1">
-                                Đi: {formatDateVN(selectedBooking.date)}
+                                Đi: {formatDateVN(selectedBooking.date)} •{" "}
+                                {selectedBooking.time}
                                 {selectedBooking.return_date
-                                    ? ` • Về: ${formatDateVN(selectedBooking.return_date)}`
+                                    ? ` • Về: ${formatDateVN(
+                                          selectedBooking.return_date
+                                      )}`
                                     : ""}
-                                • Giờ: {selectedBooking.time}
                             </div>
                         </div>
 
+                        {/* DRIVER */}
                         <div className="mt-3">
                             <label className="text-sm text-slate-300">Tài xế</label>
                             <select
@@ -547,6 +554,7 @@ export default function ScheduleCalendar() {
                             </select>
                         </div>
 
+                        {/* VEHICLE */}
                         <div className="mt-3">
                             <label className="text-sm text-slate-300">Xe</label>
                             <select
@@ -586,7 +594,6 @@ export default function ScheduleCalendar() {
                     </div>
                 </div>
             )}
-
         </div>
     );
 }
