@@ -14,7 +14,7 @@ export default function ScheduleCalendar() {
     const [bookings, setBookings] = useState([]);
     const [drivers, setDrivers] = useState([]);
     const [vehicles, setVehicles] = useState([]);
-    const [routesData, setRoutesData] = useState([]);
+       const [routesData, setRoutesData] = useState([]);
     const [cars, setCars] = useState([]);
 
     const [loading, setLoading] = useState(true);
@@ -177,7 +177,7 @@ export default function ScheduleCalendar() {
     ============================================================ */
 
     async function handleSaveAssign() {
-        // giữ nguyên logic của anh
+        // giữ nguyên logic bạn đang dùng
     }
 
     /* ============================================================
@@ -299,10 +299,12 @@ export default function ScheduleCalendar() {
 
                             <div className="space-y-1">
                                 {list.map((b) => (
-                                    <button
+                                    <div
                                         key={b.id}
+                                        role="button"
+                                        tabIndex={0}
                                         onClick={() => openAssignModal(b)}
-                                        className={`w-full px-2 py-1 text-[10px] border border-slate-700/70 rounded text-left
+                                        className={`touch-manipulation w-full px-2 py-1 text-[10px] border border-slate-700/70 rounded text-left
                                             ${
                                                 b.multi
                                                     ? "bg-blue-900/50"
@@ -332,7 +334,7 @@ export default function ScheduleCalendar() {
                                         <div className="truncate text-slate-400">
                                             {getDriverName(b.driver_id)}
                                         </div>
-                                    </button>
+                                    </div>
                                 ))}
 
                                 {list.length === 0 && (
@@ -349,7 +351,7 @@ export default function ScheduleCalendar() {
             {/* TOAST */}
             {toast && (
                 <div
-                    className={`fixed top-5 right-5 px-4 py-2 rounded shadow-lg text-white z-[2000]
+                    className={`fixed top-5 right-5 px-4 py-2 rounded shadow-lg text-white z-[1500]
                         ${
                             toast.type === "success"
                                 ? "bg-green-600"
@@ -362,7 +364,7 @@ export default function ScheduleCalendar() {
 
             {/* LOADING OVERLAY */}
             {loading && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[999]">
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[999] pointer-events-none">
                     <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin" />
                 </div>
             )}
