@@ -42,19 +42,22 @@ export default function DriverSalaryAdmin() {
   function formatDateVN(dateStr) {
     if (!dateStr) return "—";
     const d = new Date(dateStr);
-    if (Number.isNaN(d.getTime())) return dateStr;
     const dd = String(d.getDate()).padStart(2, "0");
     const mm = String(d.getMonth() + 1).padStart(2, "0");
     const yyyy = d.getFullYear();
     return `${dd}/${mm}/${yyyy}`;
   }
 
-  // ======= LOAD ROUTES (API /api/routes) =======
+  // ======= LOAD ROUTES =======
   async function loadRoutes() {
     try {
       const res = await fetch("/api/routes");
       const json = await res.json();
-      if (json.routes) setRoutes(json.routes);
+
+      if (Array.isArray(json)) setRoutes(json);
+      else if (json.routes) setRoutes(json.routes);
+      else setRoutes([]);
+
     } catch (err) {
       console.error("Load routes error:", err);
     }
@@ -62,22 +65,23 @@ export default function DriverSalaryAdmin() {
 
   // ======= Convert route code → name =======
   function getRouteName(code) {
-    return routes.find((r) => r.code === code)?.name || code;
+    if (!code) return "—";
+    const key = code.toString().trim().toLowerCase();
+
+    const found = routes.find(
+      (r) => r.code?.toString().trim().toLowerCase() === key
+    );
+
+    return found?.name || code;
   }
 
   // ======= LOAD DRIVERS =======
   useEffect(() => {
     (async () => {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("drivers")
         .select("*")
         .order("full_name");
-
-      if (error) {
-        console.error(error);
-        showToast("Không tải được danh sách tài xế", "error");
-        return;
-      }
 
       setDrivers(data || []);
     })();
@@ -101,7 +105,7 @@ export default function DriverSalaryAdmin() {
       .eq("id", driverId)
       .single();
 
-    // Trips
+    // Trips list
     const { data: rows } = await supabase
       .from("driver_assignments")
       .select(
@@ -124,30 +128,30 @@ export default function DriverSalaryAdmin() {
 
     setDetails(sorted);
 
-    // Summary calculation
+    // ======= TÍNH THEO CÔNG THỨC MỚI =======
     let revenue = 0;
-    let driverPay = 0;
-    let profit = 0;
-
     sorted.forEach((r) => {
-      const tripTotal = r.booking?.total_price || 0;
-      const dp = r.driver_pay || 0;
-      const cp = r.company_profit || 0;
-
-      revenue += tripTotal;
-      driverPay += dp;
-      profit += cp;
+      revenue += r.booking?.total_price || 0;
     });
 
     const baseSalary = driver?.base_salary || 0;
-    driverPay += baseSalary;
+    const commission = driver?.commission_percent || 0;
+
+    // Hoa hồng tổng
+    const commissionMoney = (revenue * commission) / 100;
+
+    // Tổng lương
+    const driverPay = baseSalary + commissionMoney;
+
+    // Lợi nhuận công ty
+    const profit = revenue - commissionMoney;
 
     setSummary({
       driver,
       revenue,
-      driverPay,
       baseSalary,
-      commission: driver?.commission_percent || 0,
+      commission,
+      driverPay,
       profit,
     });
 
@@ -157,6 +161,7 @@ export default function DriverSalaryAdmin() {
   // ====== APPROVE 1 TRIP =======
   async function approveOne(id) {
     setApproving(true);
+
     await supabase
       .from("driver_assignments")
       .update({ paid: true, paid_at: new Date().toISOString() })
@@ -170,11 +175,12 @@ export default function DriverSalaryAdmin() {
   // ====== APPROVE PER DAY =======
   async function approveDay() {
     if (fromDate !== toDate) {
-      showToast("Chỉ duyệt được nếu Từ ngày và Đến ngày giống nhau", "error");
+      showToast("Hai ngày phải giống nhau", "error");
       return;
     }
 
     setApproving(true);
+
     await supabase
       .from("driver_assignments")
       .update({ paid: true, paid_at: new Date().toISOString() })
@@ -190,6 +196,7 @@ export default function DriverSalaryAdmin() {
   // ====== APPROVE RANGE =======
   async function approveRange() {
     setApproving(true);
+
     await supabase
       .from("driver_assignments")
       .update({ paid: true, paid_at: new Date().toISOString() })
@@ -198,7 +205,7 @@ export default function DriverSalaryAdmin() {
       .lte("assigned_at", toDate);
 
     setApproving(false);
-    showToast("Đã duyệt lương tháng/khoảng ngày!", "success");
+    showToast("Đã duyệt lương!", "success");
     loadSalary();
   }
 
@@ -208,6 +215,7 @@ export default function DriverSalaryAdmin() {
 
       {/* FILTER SECTION */}
       <div className="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-4 mb-6">
+
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {/* Driver */}
           <div>
@@ -226,7 +234,7 @@ export default function DriverSalaryAdmin() {
             </select>
           </div>
 
-          {/* From Date */}
+          {/* From date */}
           <div>
             <div className="text-xs text-slate-400 mb-1">Từ ngày</div>
             <input
@@ -237,7 +245,7 @@ export default function DriverSalaryAdmin() {
             />
           </div>
 
-          {/* To Date */}
+          {/* To date */}
           <div>
             <div className="text-xs text-slate-400 mb-1">Đến ngày</div>
             <input
@@ -249,14 +257,15 @@ export default function DriverSalaryAdmin() {
           </div>
         </div>
 
-        {/* SUMMARY */}
+        {/* SUMMARY BOX */}
         {summary.driver && (
           <div className="bg-slate-900/60 p-4 rounded border border-slate-700 text-sm leading-6">
+
             <p><strong>Tài xế:</strong> {summary.driver.full_name}</p>
-            <p><strong>% chia:</strong> {summary.commission}%</p>
             <p><strong>Lương cơ bản:</strong> {summary.baseSalary.toLocaleString("vi-VN")} đ</p>
+            <p><strong>% hoa hồng:</strong> {summary.commission}%</p>
             <p><strong>Doanh thu:</strong> {summary.revenue.toLocaleString("vi-VN")} đ</p>
-            <p><strong>Tổng lương tài xế:</strong> {summary.driverPay.toLocaleString("vi-VN")} đ</p>
+            <p><strong>Tổng lương:</strong> {summary.driverPay.toLocaleString("vi-VN")} đ</p>
             <p><strong>Lợi nhuận công ty:</strong> {summary.profit.toLocaleString("vi-VN")} đ</p>
 
             <div className="flex flex-wrap gap-2 mt-3">
@@ -273,7 +282,7 @@ export default function DriverSalaryAdmin() {
                 disabled={!driverId || approving}
                 className="px-3 py-2 rounded-lg text-sm bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-400"
               >
-                Duyệt lương theo khoảng
+                Duyệt khoảng ngày
               </button>
             </div>
           </div>
@@ -283,7 +292,7 @@ export default function DriverSalaryAdmin() {
       {/* TABLE */}
       <div className="bg-slate-800/60 rounded-xl border border-slate-700 overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-700 font-semibold">
-          Chi tiết chuyến {loading && <span className="text-xs text-slate-400"> (đang tải...) </span>}
+          Chi tiết chuyến {loading && <span className="text-xs text-slate-400">đang tải...</span>}
         </div>
 
         <div className="overflow-x-auto">
@@ -294,7 +303,7 @@ export default function DriverSalaryAdmin() {
                 <th className="px-3 py-2 text-left">Tuyến</th>
                 <th className="px-3 py-2 text-left">Biển số</th>
                 <th className="px-3 py-2 text-right">Doanh thu</th>
-                <th className="px-3 py-2 text-right">Tài xế nhận</th>
+                <th className="px-3 py-2 text-right">% tài xế nhận</th>
                 <th className="px-3 py-2 text-right">Lợi nhuận</th>
                 <th className="px-3 py-2 text-center">Trạng thái</th>
                 <th className="px-3 py-2 text-center">Duyệt</th>
@@ -311,50 +320,47 @@ export default function DriverSalaryAdmin() {
               )}
 
               {details.map((r) => {
-                const rideDate = r.booking?.date;
-                const dateLabel = rideDate ? new Date(rideDate).toLocaleDateString("vi-VN") : "—";
+                const tripTotal = r.booking?.total_price || 0;
+                const driverMoney = (tripTotal * summary.commission) / 100;
+                const companyMoney = tripTotal - driverMoney;
 
                 return (
                   <tr key={r.id} className="border-t border-slate-700">
-                    <td className="px-3 py-2">{dateLabel}</td>
+                    <td className="px-3 py-2">
+                      {formatDateVN(r.booking?.date)}
+                    </td>
 
-                    {/* ROUTE NAME */}
                     <td className="px-3 py-2">
                       {getRouteName(r.booking?.route)}
                     </td>
 
-                    <td className="px-3 py-2">{r.vehicle?.plate_number || "—"}</td>
+                    <td className="px-3 py-2">
+                      {r.vehicle?.plate_number || "—"}
+                    </td>
 
                     <td className="px-3 py-2 text-right">
-                      {(r.booking?.total_price || 0).toLocaleString("vi-VN")} đ
+                      {tripTotal.toLocaleString("vi-VN")} đ
                     </td>
 
                     <td className="px-3 py-2 text-right text-emerald-400">
-                      {(r.driver_pay || 0).toLocaleString("vi-VN")} đ
+                      {driverMoney.toLocaleString("vi-VN")} đ
                     </td>
 
                     <td className="px-3 py-2 text-right text-yellow-300">
-                      {(r.company_profit || 0).toLocaleString("vi-VN")} đ
+                      {companyMoney.toLocaleString("vi-VN")} đ
                     </td>
 
                     <td className="px-3 py-2 text-center">
                       {r.paid ? (
-                        <span className="px-2 py-1 rounded-full text-xs bg-emerald-600/20 text-emerald-300">
-                          Đã duyệt
-                        </span>
+                        <span className="px-2 py-1 rounded-full text-xs bg-emerald-600/20 text-emerald-300">Đã duyệt</span>
                       ) : (
-                        <span className="px-2 py-1 rounded-full text-xs bg-slate-600/40 text-slate-300">
-                          Chưa duyệt
-                        </span>
+                        <span className="px-2 py-1 rounded-full text-xs bg-slate-600/40 text-slate-300">Chưa duyệt</span>
                       )}
                     </td>
 
                     <td className="px-3 py-2 text-center">
                       {r.paid ? (
-                        <button
-                          disabled
-                          className="px-3 py-1 text-xs rounded-lg bg-emerald-700/30 text-emerald-300 cursor-default"
-                        >
+                        <button disabled className="px-3 py-1 text-xs rounded-lg bg-emerald-700/30 text-emerald-300 cursor-default">
                           Đã duyệt
                         </button>
                       ) : (
@@ -367,6 +373,7 @@ export default function DriverSalaryAdmin() {
                         </button>
                       )}
                     </td>
+
                   </tr>
                 );
               })}
