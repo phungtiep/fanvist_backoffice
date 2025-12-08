@@ -24,7 +24,7 @@ export default function DriverSalaryAdmin() {
     revenue: 0,
     driverPay: 0,
     baseSalary: 0,
-    commission: 0,
+    commission: 0,   // % hiển thị cho user (vd: 30 nghĩa là 30%)
     profit: 0,
   });
 
@@ -42,6 +42,7 @@ export default function DriverSalaryAdmin() {
   function formatDateVN(dateStr) {
     if (!dateStr) return "—";
     const d = new Date(dateStr);
+    if (Number.isNaN(d.getTime())) return "—";
     const dd = String(d.getDate()).padStart(2, "0");
     const mm = String(d.getMonth() + 1).padStart(2, "0");
     const yyyy = d.getFullYear();
@@ -57,7 +58,6 @@ export default function DriverSalaryAdmin() {
       if (Array.isArray(json)) setRoutes(json);
       else if (json.routes) setRoutes(json.routes);
       else setRoutes([]);
-
     } catch (err) {
       console.error("Load routes error:", err);
     }
@@ -78,10 +78,16 @@ export default function DriverSalaryAdmin() {
   // ======= LOAD DRIVERS =======
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("drivers")
         .select("*")
         .order("full_name");
+
+      if (error) {
+        console.error(error);
+        showToast("Không tải được danh sách tài xế", "error");
+        return;
+      }
 
       setDrivers(data || []);
     })();
@@ -93,20 +99,28 @@ export default function DriverSalaryAdmin() {
   useEffect(() => {
     if (!driverId) return;
     loadSalary();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [driverId, fromDate, toDate]);
 
   async function loadSalary() {
     setLoading(true);
 
-    // Driver info
-    const { data: driver } = await supabase
+    // 1. Lấy thông tin tài xế
+    const { data: driver, error: driverErr } = await supabase
       .from("drivers")
       .select("*")
       .eq("id", driverId)
       .single();
 
-    // Trips list
-    const { data: rows } = await supabase
+    if (driverErr || !driver) {
+      console.error(driverErr);
+      showToast("Không tìm thấy tài xế", "error");
+      setLoading(false);
+      return;
+    }
+
+    // 2. Lấy danh sách chuyến
+    const { data: rows, error: rowsErr } = await supabase
       .from("driver_assignments")
       .select(
         `
@@ -119,7 +133,14 @@ export default function DriverSalaryAdmin() {
       .gte("assigned_at", fromDate)
       .lte("assigned_at", toDate);
 
-    // Sort by booking.date
+    if (rowsErr) {
+      console.error(rowsErr);
+      showToast("Không load được dữ liệu lương", "error");
+      setLoading(false);
+      return;
+    }
+
+    // 3. Sắp xếp theo ngày booking
     const sorted = [...(rows || [])].sort((a, b) => {
       const da = new Date(a.booking?.date || 0);
       const db = new Date(b.booking?.date || 0);
@@ -129,28 +150,33 @@ export default function DriverSalaryAdmin() {
     setDetails(sorted);
 
     // ======= TÍNH THEO CÔNG THỨC MỚI =======
+    // Tổng doanh thu
     let revenue = 0;
     sorted.forEach((r) => {
       revenue += r.booking?.total_price || 0;
     });
 
-    const baseSalary = driver?.base_salary || 0;
-    const commission = driver?.commission_percent || 0;
+    const baseSalary = driver.base_salary || 0;
+
+    // commission_percent trong DB có thể là 30 (30%) hoặc 0.3 (30%)
+    const rawCommission = driver.commission_percent || 0;
+    const commissionPercent = rawCommission <= 1 ? rawCommission * 100 : rawCommission; // % hiển thị
+    const rate = commissionPercent / 100; // tỉ lệ (0.3 nếu 30%)
 
     // Hoa hồng tổng
-    const commissionMoney = (revenue * commission) / 100;
+    const commissionMoney = revenue * rate;
 
-    // Tổng lương
+    // Tổng lương = lương cơ bản + hoa hồng
     const driverPay = baseSalary + commissionMoney;
 
-    // Lợi nhuận công ty
-    const profit = revenue - commissionMoney;
+    // Lợi nhuận công ty = doanh thu - lương tài xế
+    const profit = revenue - driverPay;
 
     setSummary({
       driver,
       revenue,
       baseSalary,
-      commission,
+      commission: commissionPercent,
       driverPay,
       profit,
     });
@@ -162,12 +188,19 @@ export default function DriverSalaryAdmin() {
   async function approveOne(id) {
     setApproving(true);
 
-    await supabase
+    const { error } = await supabase
       .from("driver_assignments")
       .update({ paid: true, paid_at: new Date().toISOString() })
       .eq("id", id);
 
     setApproving(false);
+
+    if (error) {
+      console.error(error);
+      showToast("Duyệt chuyến thất bại", "error");
+      return;
+    }
+
     showToast("Đã duyệt lương chuyến", "success");
     loadSalary();
   }
@@ -175,13 +208,13 @@ export default function DriverSalaryAdmin() {
   // ====== APPROVE PER DAY =======
   async function approveDay() {
     if (fromDate !== toDate) {
-      showToast("Hai ngày phải giống nhau", "error");
+      showToast("Hai ngày phải giống nhau để duyệt theo ngày", "error");
       return;
     }
 
     setApproving(true);
 
-    await supabase
+    const { error } = await supabase
       .from("driver_assignments")
       .update({ paid: true, paid_at: new Date().toISOString() })
       .eq("driver_id", driverId)
@@ -189,6 +222,13 @@ export default function DriverSalaryAdmin() {
       .lte("assigned_at", toDate);
 
     setApproving(false);
+
+    if (error) {
+      console.error(error);
+      showToast("Duyệt lương ngày thất bại", "error");
+      return;
+    }
+
     showToast("Đã duyệt lương ngày!", "success");
     loadSalary();
   }
@@ -197,7 +237,7 @@ export default function DriverSalaryAdmin() {
   async function approveRange() {
     setApproving(true);
 
-    await supabase
+    const { error } = await supabase
       .from("driver_assignments")
       .update({ paid: true, paid_at: new Date().toISOString() })
       .eq("driver_id", driverId)
@@ -205,17 +245,24 @@ export default function DriverSalaryAdmin() {
       .lte("assigned_at", toDate);
 
     setApproving(false);
+
+    if (error) {
+      console.error(error);
+      showToast("Duyệt lương khoảng ngày thất bại", "error");
+      return;
+    }
+
     showToast("Đã duyệt lương!", "success");
     loadSalary();
   }
 
+  // ======= RENDER =======
   return (
     <div className="p-6 text-slate-200">
       <h1 className="text-2xl font-bold mb-6">Tính lương tài xế</h1>
 
       {/* FILTER SECTION */}
       <div className="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-4 mb-6">
-
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {/* Driver */}
           <div>
@@ -260,13 +307,28 @@ export default function DriverSalaryAdmin() {
         {/* SUMMARY BOX */}
         {summary.driver && (
           <div className="bg-slate-900/60 p-4 rounded border border-slate-700 text-sm leading-6">
-
-            <p><strong>Tài xế:</strong> {summary.driver.full_name}</p>
-            <p><strong>Lương cơ bản:</strong> {summary.baseSalary.toLocaleString("vi-VN")} đ</p>
-            <p><strong>% hoa hồng:</strong> {summary.commission}%</p>
-            <p><strong>Doanh thu:</strong> {summary.revenue.toLocaleString("vi-VN")} đ</p>
-            <p><strong>Tổng lương:</strong> {summary.driverPay.toLocaleString("vi-VN")} đ</p>
-            <p><strong>Lợi nhuận công ty:</strong> {summary.profit.toLocaleString("vi-VN")} đ</p>
+            <p>
+              <strong>Tài xế:</strong> {summary.driver.full_name}
+            </p>
+            <p>
+              <strong>Lương cơ bản:</strong>{" "}
+              {summary.baseSalary.toLocaleString("vi-VN")} đ
+            </p>
+            <p>
+              <strong>% hoa hồng:</strong> {summary.commission}%
+            </p>
+            <p>
+              <strong>Doanh thu:</strong>{" "}
+              {summary.revenue.toLocaleString("vi-VN")} đ
+            </p>
+            <p>
+              <strong>Tổng lương:</strong>{" "}
+              {summary.driverPay.toLocaleString("vi-VN")} đ
+            </p>
+            <p>
+              <strong>Lợi nhuận công ty:</strong>{" "}
+              {summary.profit.toLocaleString("vi-VN")} đ
+            </p>
 
             <div className="flex flex-wrap gap-2 mt-3">
               <button
@@ -292,7 +354,10 @@ export default function DriverSalaryAdmin() {
       {/* TABLE */}
       <div className="bg-slate-800/60 rounded-xl border border-slate-700 overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-700 font-semibold">
-          Chi tiết chuyến {loading && <span className="text-xs text-slate-400">đang tải...</span>}
+          Chi tiết chuyến{" "}
+          {loading && (
+            <span className="text-xs text-slate-400"> (đang tải...)</span>
+          )}
         </div>
 
         <div className="overflow-x-auto">
@@ -303,7 +368,7 @@ export default function DriverSalaryAdmin() {
                 <th className="px-3 py-2 text-left">Tuyến</th>
                 <th className="px-3 py-2 text-left">Biển số</th>
                 <th className="px-3 py-2 text-right">Doanh thu</th>
-                <th className="px-3 py-2 text-right">% tài xế nhận</th>
+                <th className="px-3 py-2 text-right">Tài xế nhận</th>
                 <th className="px-3 py-2 text-right">Lợi nhuận</th>
                 <th className="px-3 py-2 text-center">Trạng thái</th>
                 <th className="px-3 py-2 text-center">Duyệt</th>
@@ -313,7 +378,10 @@ export default function DriverSalaryAdmin() {
             <tbody>
               {details.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={8} className="px-3 py-6 text-center text-slate-400">
+                  <td
+                    colSpan={8}
+                    className="px-3 py-6 text-center text-slate-400"
+                  >
                     Không có dữ liệu
                   </td>
                 </tr>
@@ -321,7 +389,8 @@ export default function DriverSalaryAdmin() {
 
               {details.map((r) => {
                 const tripTotal = r.booking?.total_price || 0;
-                const driverMoney = (tripTotal * summary.commission) / 100;
+                const rate = (summary.commission || 0) / 100;
+                const driverMoney = tripTotal * rate;
                 const companyMoney = tripTotal - driverMoney;
 
                 return (
@@ -352,15 +421,22 @@ export default function DriverSalaryAdmin() {
 
                     <td className="px-3 py-2 text-center">
                       {r.paid ? (
-                        <span className="px-2 py-1 rounded-full text-xs bg-emerald-600/20 text-emerald-300">Đã duyệt</span>
+                        <span className="px-2 py-1 rounded-full text-xs bg-emerald-600/20 text-emerald-300">
+                          Đã duyệt
+                        </span>
                       ) : (
-                        <span className="px-2 py-1 rounded-full text-xs bg-slate-600/40 text-slate-300">Chưa duyệt</span>
+                        <span className="px-2 py-1 rounded-full text-xs bg-slate-600/40 text-slate-300">
+                          Chưa duyệt
+                        </span>
                       )}
                     </td>
 
                     <td className="px-3 py-2 text-center">
                       {r.paid ? (
-                        <button disabled className="px-3 py-1 text-xs rounded-lg bg-emerald-700/30 text-emerald-300 cursor-default">
+                        <button
+                          disabled
+                          className="px-3 py-1 text-xs rounded-lg bg-emerald-700/30 text-emerald-300 cursor-default"
+                        >
                           Đã duyệt
                         </button>
                       ) : (
@@ -373,7 +449,6 @@ export default function DriverSalaryAdmin() {
                         </button>
                       )}
                     </td>
-
                   </tr>
                 );
               })}
