@@ -1,8 +1,11 @@
-// ======================= BookingsAdmin.jsx (PART 1/2) =======================
-
+// src/pages/BookingsAdmin.jsx
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase.js";
 import { HiTrash, HiPencil, HiPlus } from "react-icons/hi2";
+
+/* =========================================================================
+   MAIN COMPONENT — BOOKINGS ADMIN
+=========================================================================== */
 
 export default function BookingsAdmin() {
   const today = new Date();
@@ -26,19 +29,25 @@ export default function BookingsAdmin() {
   const [loadingDelete, setLoadingDelete] = useState(false);
 
   const [toast, setToast] = useState(null);
-  const [confirmDelete, setConfirmDelete] = useState(null); // <====== NEW POPUP STATE
 
   const [drivers, setDrivers] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [routes, setRoutes] = useState([]);
   const [cars, setCars] = useState([]);
 
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
   function showToast(message, type = "success") {
     setToast({ message, type });
     setTimeout(() => setToast(null), 2500);
   }
 
+  /* =========================================================================
+     HELPERS
+  ========================================================================= */
+
   function formatDateVN(dateStr) {
+    if (!dateStr) return "—";
     const d = new Date(dateStr);
     return `${String(d.getDate()).padStart(2, "0")}/${String(
       d.getMonth() + 1
@@ -54,27 +63,27 @@ export default function BookingsAdmin() {
     return Object.entries(groups);
   }
 
-  function rowToForm(row) {
+  function rowToForm(row = {}) {
     return {
-      id: row.id,
-      full_name: row.full_name ?? "",
-      phone: row.phone ?? "",
-      email: row.email ?? "",
-      route: row.route ?? "",
-      car_type: row.car_type ?? "",
-      pickup_place: row.pickup_place ?? "",
-      dropoff_place: row.dropoff_place ?? "",
-      date: row.date ?? "",
-      time: row.time ?? "",
-      round_trip: row.round_trip ?? false,
-      return_date: row.return_date ?? "",
-      return_time: row.return_time ?? "",
-      note: row.note ?? "",
-      adult_count: row.adult_count ?? 0,
-      child_count: row.child_count ?? 0,
-      total_price: row.total_price ?? 0,
-      driver_id: row.driver_id ?? "",
-      vehicle_id: row.vehicle_id ?? "",
+      id: row.id || null,
+      full_name: row.full_name || "",
+      phone: row.phone || "",
+      email: row.email || "",
+      route: row.route || "",
+      car_type: row.car_type || "",
+      pickup_place: row.pickup_place || "",
+      dropoff_place: row.dropoff_place || "",
+      date: row.date || "",
+      time: row.time || "",
+      round_trip: row.round_trip || false,
+      return_date: row.return_date || "",
+      return_time: row.return_time || "",
+      note: row.note || "",
+      adult_count: Number(row.adult_count) || 0,
+      child_count: Number(row.child_count) || 0,
+      total_price: Number(row.total_price) || 0,
+      driver_id: row.driver_id || "",
+      vehicle_id: row.vehicle_id || "",
     };
   }
 
@@ -88,8 +97,13 @@ export default function BookingsAdmin() {
     return car ? car.name_vi : code;
   }
 
+  /* =========================================================================
+     LOADERS
+  ========================================================================= */
+
   async function load() {
     setLoadingPage(true);
+
     let query = supabase.from("bookings").select("*");
 
     if (search) {
@@ -100,17 +114,15 @@ export default function BookingsAdmin() {
 
     query = query.gte("date", fromDate).lte("date", toDate);
 
-    const { data } = await query;
+    const { data, error } = await query;
     setLoadingPage(false);
 
-    if (data) {
+    if (!error && data) {
       setBookings(
-        [...data].sort((a, b) => {
+        data.sort((a, b) => {
           const d1 = new Date(a.date);
           const d2 = new Date(b.date);
-
           if (d1 - d2 !== 0) return d1 - d2;
-
           return (a.time || "").localeCompare(b.time || "");
         })
       );
@@ -160,13 +172,21 @@ export default function BookingsAdmin() {
     loadCars();
   }, []);
 
-  // ===== Disable scroll when modal open =====
+  /* =========================================================================
+     SCROLL LOCK FOR MODAL
+  ========================================================================= */
+
   useEffect(() => {
     document.body.style.overflow = modalOpen ? "hidden" : "auto";
+    return () => (document.body.style.overflow = "auto");
   }, [modalOpen]);
 
-  // ===== DELETE BOOKING (CONFIRMED) =====
-  const handleDelete = async (id) => {
+  /* =========================================================================
+     DELETE BOOKING (WITH CUSTOM CONFIRM POPUP)
+  ========================================================================= */
+
+  async function deleteBookingConfirmed() {
+    const id = confirmDelete;
     setLoadingDelete(true);
 
     const { error } = await supabase.rpc("delete_booking_cascade", {
@@ -174,12 +194,50 @@ export default function BookingsAdmin() {
     });
 
     setLoadingDelete(false);
+    setConfirmDelete(null);
 
     if (error) return showToast("Không thể xóa booking!", "error");
 
     showToast("Đã xóa booking!", "success");
     load();
+  }
+
+  /* =========================================================================
+     SAVE (ADD / EDIT)
+  ========================================================================= */
+
+  const handleSave = async () => {
+    if (!form) return;
+    setLoadingSave(true);
+
+    const payload = {
+      ...form,
+      driver_id: form.driver_id || null,
+      vehicle_id: form.vehicle_id || null,
+    };
+
+    let res;
+    if (modalMode === "add") {
+      res = await supabase.from("bookings").insert(payload);
+    } else {
+      res = await supabase
+        .from("bookings")
+        .update(payload)
+        .eq("id", form.id);
+    }
+
+    setLoadingSave(false);
+
+    if (res.error) return showToast("Lưu thất bại!", "error");
+
+    showToast("Lưu thành công!", "success");
+    setModalOpen(false);
+    load();
   };
+
+  /* =========================================================================
+     UI RENDER
+  ========================================================================= */
 
   const grouped = groupByDate(bookings);
 
@@ -187,10 +245,7 @@ export default function BookingsAdmin() {
     <div className="p-6 text-slate-200 relative">
       {/* HEADER */}
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">
-          Quản lý Booking (30 ngày tới)
-        </h1>
-
+        <h1 className="text-2xl font-bold">Quản lý Booking (30 ngày tới)</h1>
         <button
           className="px-4 py-2 bg-blue-600 rounded-lg flex items-center gap-2"
           onClick={() => {
@@ -237,7 +292,6 @@ export default function BookingsAdmin() {
           30 ngày tới
         </button>
       </div>
-
       {/* MOBILE ACCORDION */}
       <div className="sm:hidden space-y-4">
         {grouped.map(([date, items]) => (
@@ -256,25 +310,18 @@ export default function BookingsAdmin() {
               setModalMode("edit");
               setModalOpen(true);
             }}
+            openConfirmDelete={(id) => setConfirmDelete(id)}
             getRouteName={getRouteName}
             getCarName={getCarName}
-            onAskDelete={(b) =>
-              setConfirmDelete({
-                id: b.id,
-                name: b.full_name,
-                price: b.total_price,
-              })
-            }
           />
         ))}
       </div>
+
       {/* DESKTOP GRID */}
       <div className="hidden sm:block">
         {grouped.map(([date, items]) => (
           <div key={date} className="mb-10">
-            <h2 className="text-xl font-bold mb-4">
-              📅 {formatDateVN(date)}
-            </h2>
+            <h2 className="text-xl font-bold mb-4">📅 {formatDateVN(date)}</h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {items.map((b) => (
@@ -287,9 +334,7 @@ export default function BookingsAdmin() {
                   }}
                   className="bg-[#1E2538] border border-slate-600/40 rounded-2xl p-5 shadow-lg cursor-pointer hover:border-blue-500/50 hover:shadow-blue-900/30 transition-all"
                 >
-                  <div className="text-xl font-semibold text-white mb-1">
-                    {b.full_name}
-                  </div>
+                  <div className="text-xl font-semibold mb-1">{b.full_name}</div>
 
                   <div className="flex items-center gap-2 text-slate-300 text-sm mb-3">
                     <span>{getRouteName(b.route)}</span>
@@ -325,11 +370,7 @@ export default function BookingsAdmin() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setConfirmDelete({
-                            id: b.id,
-                            name: b.full_name,
-                            price: b.total_price,
-                          });
+                          setConfirmDelete(b.id);
                         }}
                         className="p-2 rounded-lg hover:bg-red-600/70 text-red-400 hover:text-white transition"
                       >
@@ -344,9 +385,35 @@ export default function BookingsAdmin() {
         ))}
       </div>
 
-      {/* LOADING */}
+      {/* CONFIRM DELETE POPUP */}
+      {confirmDelete && (
+        <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-[2000]">
+          <div className="bg-[#1E293B] p-6 rounded-xl w-[90%] max-w-[360px] border border-slate-700 shadow-xl">
+            <h3 className="text-lg font-bold mb-4 text-red-400">Xóa Booking?</h3>
+            <p className="text-slate-300 mb-6">Bạn có chắc muốn xóa booking này? Thao tác này không thể hoàn tác.</p>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setConfirmDelete(null)}
+                className="px-4 py-2 bg-slate-600 rounded-lg"
+              >
+                Hủy
+              </button>
+
+              <button
+                onClick={deleteBookingConfirmed}
+                className="px-4 py-2 bg-red-600 rounded-lg hover:bg-red-500"
+              >
+                Xóa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* LOADING OVERLAY */}
       {(loadingPage || loadingDelete) && (
-        <div className="fixed inset-0 bg-black/30 flex justify-center items-center z-[999]">
+        <div className="fixed inset-0 bg-black/30 flex justify-center items-center z-[3000]">
           <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
         </div>
       )}
@@ -354,25 +421,15 @@ export default function BookingsAdmin() {
       {/* TOAST */}
       {toast && (
         <div
-          className={`fixed top-5 right-5 px-4 py-2 rounded shadow-lg text-white z-[2000]
-           ${toast.type === "success" ? "bg-green-600" : "bg-red-600"}`}
+          className={`fixed top-5 right-5 px-4 py-2 rounded shadow-lg text-white z-[4000]
+            ${toast.type === "success" ? "bg-green-600" : "bg-red-600"}`}
         >
           {toast.message}
         </div>
       )}
 
-      {/* CONFIRM DELETE MODAL */}
-      <ConfirmDeleteModal
-        data={confirmDelete}
-        onCancel={() => setConfirmDelete(null)}
-        onConfirm={(id) => {
-          setConfirmDelete(null);
-          handleDelete(id);
-        }}
-      />
-
       {/* MODAL */}
-      {modalOpen && form && (
+      {modalOpen && form && typeof form === "object" && (
         <ModalViewEdit
           form={form}
           setForm={setForm}
@@ -391,7 +448,7 @@ export default function BookingsAdmin() {
 }
 
 /* =========================================================================
-   MOBILE ACCORDION — FIX DELETE BUTTON
+   MOBILE ACCORDION
 =========================================================================== */
 
 function MobileAccordionDay({
@@ -400,9 +457,9 @@ function MobileAccordionDay({
   formatDateVN,
   openViewModal,
   openEditModal,
+  openConfirmDelete,
   getRouteName,
   getCarName,
-  onAskDelete,
 }) {
   const [open, setOpen] = useState(false);
 
@@ -456,7 +513,7 @@ function MobileAccordionDay({
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      onAskDelete(b);
+                      openConfirmDelete(b.id);
                     }}
                     className="p-2 rounded hover:bg-red-700 text-red-300 hover:text-white"
                   >
@@ -473,53 +530,80 @@ function MobileAccordionDay({
 }
 
 /* =========================================================================
-   CONFIRM DELETE POPUP
+   MODAL — VIEW / EDIT / ADD
 =========================================================================== */
 
-function ConfirmDeleteModal({ data, onCancel, onConfirm }) {
-  if (!data) return null;
+function ModalViewEdit({
+  form,
+  setForm,
+  modalMode,
+  setModalOpen,
+  handleSave,
+  loadingSave,
+  drivers,
+  vehicles,
+  routes,
+  cars,
+}) {
+  const readOnly = modalMode === "view";
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-[3000] px-4">
-      <div className="bg-[#1E293B] w-full max-w-sm p-6 rounded-xl border border-slate-600 shadow-xl animate-fadeIn">
+    <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-[5000]">
+      <div className="bg-[#1E293B] p-6 rounded-xl w-[520px] max-h-[85vh] overflow-y-auto border border-slate-700 relative">
 
-        <h3 className="text-xl font-semibold mb-3 text-white">
-          Xác nhận xoá booking?
-        </h3>
+        {loadingSave && (
+          <div className="absolute inset-0 bg-black/40 flex justify-center items-center rounded-xl">
+            <div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        )}
 
-        <div className="bg-slate-800 p-4 rounded-lg mb-4 border border-slate-700">
-          <p className="text-white font-semibold text-lg">{data.name}</p>
-          <p className="text-green-400 font-bold text-xl">
-            {data.price.toLocaleString("vi-VN")} đ
-          </p>
+        <h2 className="text-xl font-bold mb-4">
+          {modalMode === "add" ? "Thêm Booking" : modalMode === "edit" ? "Sửa Booking" : "Chi tiết Booking"}
+        </h2>
+
+        <div className="space-y-3 text-sm">
+          <Field label="Họ tên" readOnly={readOnly} value={form.full_name} onChange={(v) => setForm({ ...form, full_name: v })} />
+          <Field label="Số điện thoại" readOnly={readOnly} value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
+          <Field label="Email" readOnly={readOnly} value={form.email} onChange={(v) => setForm({ ...form, email: v })} />
+
+          <SelectField label="Tuyến đường" readOnly={readOnly} value={form.route} onChange={(v) => setForm({ ...form, route: v })} options={routes.map((r) => ({ value: r.code, label: r.name }))} />
+
+          <SelectField label="Loại xe" readOnly={readOnly} value={form.car_type} onChange={(v) => setForm({ ...form, car_type: v })} options={cars.map((c) => ({ value: c.code, label: c.name_vi }))} />
+
+          <Field label="Điểm đón" readOnly={readOnly} value={form.pickup_place} onChange={(v) => setForm({ ...form, pickup_place: v })} />
+          <Field label="Điểm trả" readOnly={readOnly} value={form.dropoff_place} onChange={(v) => setForm({ ...form, dropoff_place: v })} />
+
+          <InputDateTime label="Ngày đi" type="date" readOnly={readOnly} value={form.date} onChange={(v) => setForm({ ...form, date: v })} />
+          <InputDateTime label="Giờ đi" type="time" readOnly={readOnly} value={form.time} onChange={(v) => setForm({ ...form, time: v })} />
+
+          <InputDateTime label="Ngày về (khứ hồi)" type="date" readOnly={readOnly} value={form.return_date} onChange={(v) => setForm({ ...form, return_date: v })} />
+          <InputDateTime label="Giờ về (khứ hồi)" type="time" readOnly={readOnly} value={form.return_time} onChange={(v) => setForm({ ...form, return_time: v })} />
+
+          <SelectField label="Tài xế" readOnly={readOnly} value={form.driver_id} onChange={(v) => setForm({ ...form, driver_id: v })} options={drivers.map((d) => ({ value: d.id, label: `${d.full_name} • ${d.phone}` }))} />
+
+          <SelectField label="Xe" readOnly={readOnly} value={form.vehicle_id} onChange={(v) => setForm({ ...form, vehicle_id: v })} options={vehicles.map((x) => ({ value: x.id, label: x.plate_number }))} />
+
+          <Field label="Số người lớn" readOnly={readOnly} value={form.adult_count} onChange={(v) => setForm({ ...form, adult_count: Number(v) })} />
+          <Field label="Số trẻ em" readOnly={readOnly} value={form.child_count} onChange={(v) => setForm({ ...form, child_count: Number(v) })} />
+
+          <Field label="Tổng tiền" readOnly={readOnly} value={form.total_price} onChange={(v) => setForm({ ...form, total_price: Number(v) })} />
+          <Field label="Ghi chú" readOnly={readOnly} value={form.note} onChange={(v) => setForm({ ...form, note: v })} />
         </div>
 
-        <p className="text-slate-300 mb-4">
-          Hành động này không thể hoàn tác.
-        </p>
-
-        <div className="flex justify-end gap-3">
-          <button
-            onClick={onCancel}
-            className="px-4 py-2 rounded-lg bg-slate-600 text-white hover:bg-slate-500 transition"
-          >
-            Hủy
-          </button>
-
-          <button
-            onClick={() => onConfirm(data.id)}
-            className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-500 transition"
-          >
-            Xác nhận xoá
-          </button>
+        <div className="flex justify-end gap-2 mt-5">
+          <button className="px-4 py-2 bg-slate-600 rounded" onClick={() => setModalOpen(false)}>Đóng</button>
+          {!readOnly && (
+            <button className="px-4 py-2 bg-blue-600 rounded" onClick={handleSave}>Lưu</button>
+          )}
         </div>
+
       </div>
     </div>
   );
 }
 
 /* =========================================================================
-   COMMON FIELD COMPONENTS
+   FIELD COMPONENTS
 =========================================================================== */
 
 function Field({ label, readOnly, value, onChange }) {
@@ -529,11 +613,7 @@ function Field({ label, readOnly, value, onChange }) {
       {readOnly ? (
         <div className="p-2 bg-slate-700 rounded">{value || "—"}</div>
       ) : (
-        <input
-          className="w-full p-2 bg-slate-700 rounded"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-        />
+        <input className="w-full p-2 bg-slate-700 rounded" value={value} onChange={(e) => onChange(e.target.value)} />
       )}
     </div>
   );
@@ -546,12 +626,7 @@ function InputDateTime({ label, type, readOnly, value, onChange }) {
       {readOnly ? (
         <div className="p-2 bg-slate-700 rounded">{value || "—"}</div>
       ) : (
-        <input
-          type={type}
-          className="w-full p-2 bg-slate-700 rounded"
-          value={value || ""}
-          onChange={(e) => onChange(e.target.value)}
-        />
+        <input type={type} className="w-full p-2 bg-slate-700 rounded" value={value || ""} onChange={(e) => onChange(e.target.value)} />
       )}
     </div>
   );
@@ -566,11 +641,7 @@ function SelectField({ label, readOnly, value, onChange, options }) {
           {options.find((o) => o.value === value)?.label || "—"}
         </div>
       ) : (
-        <select
-          className="w-full p-2 bg-slate-700 rounded"
-          value={value || ""}
-          onChange={(e) => onChange(e.target.value)}
-        >
+        <select className="w-full p-2 bg-slate-700 rounded" value={value || ""} onChange={(e) => onChange(e.target.value)}>
           <option value="">— Chọn —</option>
           {options.map((o) => (
             <option key={o.value} value={o.value}>
