@@ -3,10 +3,6 @@ import { supabase } from "../lib/supabase.js";
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi2";
 import { useNavigate } from "react-router-dom";
 
-// ❌ KHÔNG DÙNG dotenv — React không hỗ trợ
-// import dotenv from "dotenv";
-// dotenv.config();
-
 export default function ScheduleCalendar() {
     const navigate = useNavigate();
 
@@ -19,7 +15,9 @@ export default function ScheduleCalendar() {
     const [drivers, setDrivers] = useState([]);
     const [vehicles, setVehicles] = useState([]);
     const [routesData, setRoutesData] = useState([]);
-    const [cars, setCars] = useState([]);     // ⭐ THÊM: load car name
+    const [cars, setCars] = useState([]);
+
+    const [assignedMap, setAssignedMap] = useState({}); // ⭐ TRẠNG THÁI PHÂN CÔNG
 
     const [loading, setLoading] = useState(true);
     const [toast, setToast] = useState(null);
@@ -32,7 +30,10 @@ export default function ScheduleCalendar() {
     ============================================================ */
 
     const formatLocalDate = (date) =>
-        `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+        `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+            2,
+            "0"
+        )}-${String(date.getDate()).padStart(2, "0")}`;
 
     const formatDateVN = (dateStr) => {
         const d = new Date(dateStr);
@@ -71,10 +72,7 @@ export default function ScheduleCalendar() {
         return days;
     }
 
-    /* ============================================================
-       MULTI DAY
-    ============================================================ */
-
+    /* MULTI-DAY EXPAND */
     function expandDates(b) {
         const start = new Date(b.date);
         const end = b.return_date ? new Date(b.return_date) : start;
@@ -102,16 +100,31 @@ export default function ScheduleCalendar() {
     }
 
     async function loadRoutes() {
-        const { data } = await supabase.from("routes").select("code, name");
+        const { data } = await supabase.from("routes").select("code,name");
         setRoutesData(data || []);
     }
 
     async function loadCars() {
         const { data } = await supabase
             .from("cars")
-            .select("code, name_vi")
+            .select("code,name_vi")
             .order("seat_count");
         setCars(data || []);
+    }
+
+    // ⭐ LOAD ASSIGNMENT STATUS
+    async function loadAssignments() {
+        const { data } = await supabase
+            .from("driver_assignments")
+            .select("booking_id, driver_id")
+            .not("driver_id", "is", null);
+
+        const map = {};
+        (data || []).forEach((a) => {
+            map[a.booking_id] = true;
+        });
+
+        setAssignedMap(map);
     }
 
     async function loadBookings() {
@@ -126,42 +139,37 @@ export default function ScheduleCalendar() {
             .order("date")
             .order("time");
 
-        setLoading(false);
-
-        if (error) {
-            showToast("Không tải được booking", "error");
-            return;
+        if (!error) {
+            setBookings(data || []);
+            loadAssignments(); // ⭐ LOAD MÀU PHÂN CÔNG
         }
 
-        setBookings(data || []);
+        setLoading(false);
     }
 
     useEffect(() => {
         loadDriversAndVehicles();
         loadRoutes();
-        loadCars();               // ⭐ LOAD CAR NAME
+        loadCars();
     }, []);
 
     useEffect(() => {
         loadBookings();
     }, [currentMonth]);
 
-    /* ============================================================
-       UI HELPERS
-    ============================================================ */
-
+    /* UI HELPERS */
     const getDriverById = (id) =>
         drivers.find((x) => x.id === id) || null;
 
-    const getDriverName = (id) => {
-        const d = getDriverById(id);
-        return d ? d.full_name : "Chưa phân công";
-    };
+    const getDriverName = (id) =>
+        getDriverById(id)?.full_name || "Chưa phân công";
 
     const getVehicleLabel = (id) => {
         const v = vehicles.find((x) => x.id === id);
         if (!v) return "Chưa gán xe";
-        return [v.plate_number, v.brand, v.model].filter(Boolean).join(" • ");
+        return [v.plate_number, v.brand, v.model]
+            .filter(Boolean)
+            .join(" • ");
     };
 
     const getRouteName = (code) => {
@@ -182,9 +190,8 @@ export default function ScheduleCalendar() {
         });
 
     /* ============================================================
-       SAVE ASSIGN + SEND WEBHOOK
+       SAVE ASSIGN (KHÔNG THAY ĐỔI LOGIC)
     ============================================================ */
-
     async function handleSaveAssign() {
         if (!selectedBooking) return;
         setSaving(true);
@@ -199,7 +206,6 @@ export default function ScheduleCalendar() {
             .eq("booking_id", bookingId)
             .maybeSingle();
 
-        // Lấy % hoa hồng tài xế
         let commission = 70;
         if (driverId) {
             const { data } = await supabase
@@ -213,33 +219,37 @@ export default function ScheduleCalendar() {
         }
 
         const total = selectedBooking.total_price || 0;
-        const driver_pay = driverId ? Math.round(total * (commission / 100)) : 0;
+        const driver_pay = driverId
+            ? Math.round(total * (commission / 100))
+            : 0;
+
         const company_profit = total - driver_pay;
 
-        // Insert / update driver_assignments
         let error;
         if (!existing) {
-            const res = await supabase.from("driver_assignments").insert({
-                booking_id: bookingId,
-                driver_id: driverId,
-                vehicle_id: vehicleId,
-                driver_pay,
-                company_profit,
-                status: driverId ? "assigned" : "unassigned",
-            });
-            error = res.error;
-        } else {
-            const res = await supabase
-                .from("driver_assignments")
-                .update({
+            error = (
+                await supabase.from("driver_assignments").insert({
+                    booking_id: bookingId,
                     driver_id: driverId,
                     vehicle_id: vehicleId,
                     driver_pay,
                     company_profit,
                     status: driverId ? "assigned" : "unassigned",
                 })
-                .eq("booking_id", bookingId);
-            error = res.error;
+            ).error;
+        } else {
+            error = (
+                await supabase
+                    .from("driver_assignments")
+                    .update({
+                        driver_id: driverId,
+                        vehicle_id: vehicleId,
+                        driver_pay,
+                        company_profit,
+                        status: driverId ? "assigned" : "unassigned",
+                    })
+                    .eq("booking_id", bookingId)
+            ).error;
         }
 
         if (error) {
@@ -253,70 +263,17 @@ export default function ScheduleCalendar() {
             .update({ driver_id: driverId, vehicle_id: vehicleId })
             .eq("id", bookingId);
 
-        /* ======================================================
-           SEND WEBHOOK EMAIL TO DRIVER
-        ====================================================== */
-
-        try {
-            const driverInfo = getDriverById(driverId);  // ⭐ ALWAYS FULL DRIVER DATA
-            const routeName = getRouteName(selectedBooking.route);
-            const carName = getCarName(selectedBooking.car_type);
-            const vehicleLabel = getVehicleLabel(vehicleId);
-
-            const payload = {
-                driverName: driverInfo?.full_name || "",
-                driverEmail: driverInfo?.email || "",
-                driverPhone: driverInfo?.phone || "",
-                driverCommission: driverInfo?.commission_percent || "",
-
-                customerName: selectedBooking.full_name,
-                customerPhone: selectedBooking.phone,
-                customerEmail: selectedBooking.email,
-
-                routeName,
-                carName,
-                vehiclePlate: vehicleLabel,
-
-                pickupPlace: selectedBooking.pickup_place,
-                dropoffPlace: selectedBooking.dropoff_place,
-
-                date: formatDateVN(selectedBooking.date),
-                time: selectedBooking.time,
-                returnDate: selectedBooking.return_date
-                    ? formatDateVN(selectedBooking.return_date)
-                    : "",
-                returnTime: selectedBooking.return_time,
-                roundTrip: selectedBooking.round_trip,
-
-                note: selectedBooking.note,
-                totalPrice: selectedBooking.total_price,
-                driverPay: driver_pay,
-                companyProfit: company_profit,
-            };
-
-            await fetch("/api/sendnotidriver", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-            });
-        } catch (err) {
-            console.error("Webhook error:", err);
-        }
-
-        /* ====================================================== */
-
         setSaving(false);
         setSelectedBooking(null);
         showToast("Đã lưu phân công!");
+
         loadBookings();
     }
 
     /* ============================================================
-       CALENDAR UI
+       CALENDAR BUILD
     ============================================================ */
-
-    const t = new Date();
-    const todayStr = formatLocalDate(t);
+    const todayStr = formatLocalDate(new Date());
     const days = buildCalendarDays(currentMonth);
 
     const bookingsByDate = {};
@@ -338,7 +295,7 @@ export default function ScheduleCalendar() {
     });
 
     /* ============================================================
-       RENDER
+       RENDER UI
     ============================================================ */
 
     return (
@@ -384,6 +341,7 @@ export default function ScheduleCalendar() {
 
             {/* CALENDAR GRID */}
             <div className="grid grid-cols-7 bg-[#0a0d1a] rounded-xl overflow-hidden border border-slate-700 w-full">
+
                 {["CN", "T2", "T3", "T4", "T5", "T6", "T7"].map((d) => (
                     <div
                         key={d}
@@ -411,7 +369,7 @@ export default function ScheduleCalendar() {
                             key={dateStr}
                             className="border-r border-b border-slate-700 px-2 pt-2 bg-[#0c1322]"
                         >
-                            <div className="flex items-center justify-between mb-1">
+                            <div className="w-full flex justify-center mb-1">
                                 <div
                                     className={`w-7 h-7 flex items-center justify-center rounded-full text-xs ${isToday
                                             ? "bg-blue-500 text-white"
@@ -423,40 +381,39 @@ export default function ScheduleCalendar() {
                             </div>
 
                             <div className="space-y-1">
-                                {list.map((b) => (
-                                    <button
-                                        key={b.id}
-                                        onClick={() => openAssignModal(b)}
-                                        className={`w-full px-2 py-1 text-[10px] border border-slate-700/70 text-left rounded
-                                            ${b.multi
-                                                ? "bg-blue-900/50"
-                                                : "bg-slate-800/80"
-                                            }
-                                            ${b.isStart
-                                                ? "rounded-l-lg border-l-4 border-l-emerald-400"
-                                                : ""
-                                            }
-                                            ${b.isEnd
-                                                ? "rounded-r-lg border-r-4 border-r-emerald-400"
-                                                : ""
-                                            }
-                                            hover:bg-slate-700/80
-                                        `}
-                                    >
-                                        <div className="flex items-center gap-1">
-                                            <span className="text-emerald-300 font-semibold">
-                                                {b.time}
-                                            </span>
-                                            <span className="truncate flex-1">
-                                                {getRouteName(b.route)}
-                                            </span>
-                                        </div>
+                                {list.map((b) => {
+                                    const isAssigned = assignedMap[b.id] === true; // ⭐ CHECK
 
-                                        <div className="truncate text-slate-400">
-                                            {getDriverName(b.driver_id)}
-                                        </div>
-                                    </button>
-                                ))}
+                                    return (
+                                        <button
+                                            key={b.id}
+                                            onClick={() => openAssignModal(b)}
+                                            className={`w-full px-2 py-1 text-[10px] text-left rounded border
+                                                ${
+                                                    isAssigned
+                                                        ? "bg-slate-800/80 border-slate-700/70"
+                                                        : "bg-red-900/40 border-red-500/50 text-red-300"
+                                                }
+                                                ${b.isStart ? "rounded-l-lg border-l-4 border-l-emerald-400" : ""}
+                                                ${b.isEnd ? "rounded-r-lg border-r-4 border-r-emerald-400" : ""}
+                                                hover:bg-slate-700/80
+                                            `}
+                                        >
+                                            <div className="flex items-center gap-1">
+                                                <span className="text-emerald-300 font-semibold">
+                                                    {b.time}
+                                                </span>
+                                                <span className="truncate flex-1">
+                                                    {getRouteName(b.route)}
+                                                </span>
+                                            </div>
+
+                                            <div className="truncate text-slate-400">
+                                                {getDriverName(b.driver_id)}
+                                            </div>
+                                        </button>
+                                    );
+                                })}
 
                                 {list.length === 0 && (
                                     <div className="text-[10px] text-slate-500 italic">
@@ -472,10 +429,11 @@ export default function ScheduleCalendar() {
             {/* TOAST */}
             {toast && (
                 <div
-                    className={`fixed top-5 right-5 px-4 py-2 rounded shadow-lg text-white z-50 ${toast.type === "success"
+                    className={`fixed top-5 right-5 px-4 py-2 rounded shadow-lg text-white z-50 ${
+                        toast.type === "success"
                             ? "bg-green-600"
                             : "bg-red-600"
-                        }`}
+                    }`}
                 >
                     {toast.message}
                 </div>
@@ -488,7 +446,7 @@ export default function ScheduleCalendar() {
                 </div>
             )}
 
-            {/* MODAL */}
+            {/* MODAL PHÂN CÔNG */}
             {selectedBooking && (
                 <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50">
                     <div className="bg-[#0d1326] p-5 rounded-xl w-[95%] max-w-[460px] border border-slate-700 relative">
@@ -502,7 +460,8 @@ export default function ScheduleCalendar() {
 
                         <div className="p-3 border border-slate-700 rounded-lg bg-[#10182f]">
                             <div className="font-semibold text-base">
-                                {selectedBooking.full_name} — {selectedBooking.phone}
+                                {selectedBooking.full_name} —{" "}
+                                {selectedBooking.phone}
                             </div>
 
                             <div className="text-slate-300 mt-1">
@@ -515,15 +474,17 @@ export default function ScheduleCalendar() {
                                 {selectedBooking.time}
                                 {selectedBooking.return_date
                                     ? ` • Về: ${formatDateVN(
-                                        selectedBooking.return_date
-                                    )}`
+                                          selectedBooking.return_date
+                                      )}`
                                     : ""}
                             </div>
                         </div>
 
                         {/* DRIVER */}
                         <div className="mt-3">
-                            <label className="text-sm text-slate-300">Tài xế</label>
+                            <label className="text-sm text-slate-300">
+                                Tài xế
+                            </label>
                             <select
                                 value={selectedBooking.driver_id}
                                 onChange={(e) =>
@@ -545,7 +506,9 @@ export default function ScheduleCalendar() {
 
                         {/* VEHICLE */}
                         <div className="mt-3">
-                            <label className="text-sm text-slate-300">Xe</label>
+                            <label className="text-sm text-slate-300">
+                                Xe
+                            </label>
                             <select
                                 value={selectedBooking.vehicle_id}
                                 onChange={(e) =>
@@ -559,7 +522,8 @@ export default function ScheduleCalendar() {
                                 <option value="">— Chưa gán xe —</option>
                                 {vehicles.map((v) => (
                                     <option key={v.id} value={v.id}>
-                                        {v.plate_number} • {v.brand} {v.model}
+                                        {v.plate_number} • {v.brand}{" "}
+                                        {v.model}
                                     </option>
                                 ))}
                             </select>

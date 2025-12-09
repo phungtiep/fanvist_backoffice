@@ -38,24 +38,23 @@ export default function RevenueDashboard() {
   async function loadData() {
     setLoading(true);
 
-    // 1️⃣ Lấy doanh thu booking
+    // 1️⃣ Lấy doanh thu booking theo booking.date
     const { data: bookings, error: err1 } = await supabase
       .from("bookings")
       .select("date,total_price")
       .gte("date", fromDate)
       .lte("date", toDate);
 
-    // 2️⃣ Lấy lương & lợi nhuận từ driver_assignments
+    // 2️⃣ Lấy lương & lợi nhuận từ driver_assignments (lọc theo booking.date)
     const { data: assignments, error: err2 } = await supabase
       .from("driver_assignments")
       .select(`
         driver_pay,
         company_profit,
-        assigned_at,
-        booking:bookings(date)
+        booking:bookings!inner(date)
       `)
-      .gte("assigned_at", fromDate)
-      .lte("assigned_at", toDate);
+      .gte("booking.date", fromDate)
+      .lte("booking.date", toDate);
 
     setLoading(false);
 
