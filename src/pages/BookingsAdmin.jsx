@@ -1,19 +1,22 @@
 // src/pages/BookingsAdmin.jsx
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase.js";
-import { HiTrash, HiPencil, HiPlus } from "react-icons/hi2";
+import { HiTrash, HiPencil, HiPlus, HiChevronLeft, HiChevronRight } from "react-icons/hi2";
 
 /* =========================================================================
-   MAIN COMPONENT — BOOKINGS ADMIN
+   MAIN COMPONENT — BOOKINGS ADMIN (MOBILE LIST + DESKTOP CALENDAR)
 =========================================================================== */
 
 export default function BookingsAdmin() {
-  const today = new Date();
-  const next = new Date();
-  next.setDate(today.getDate() + 30);
+  // ====== INIT DATES (THÁNG HIỆN TẠI) ======
+  const now = new Date();
+  const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-  const defaultFrom = today.toISOString().split("T")[0];
-  const defaultTo = next.toISOString().split("T")[0];
+  const defaultFrom = firstOfMonth.toISOString().split("T")[0];
+  const defaultTo = lastOfMonth.toISOString().split("T")[0];
+
+  const [currentMonth, setCurrentMonth] = useState(firstOfMonth);
 
   const [bookings, setBookings] = useState([]);
   const [search, setSearch] = useState("");
@@ -49,9 +52,39 @@ export default function BookingsAdmin() {
 
   function formatDateVN(dateStr) {
     const d = new Date(dateStr);
+    if (Number.isNaN(d.getTime())) return "—";
     return `${String(d.getDate()).padStart(2, "0")}/${String(
       d.getMonth() + 1
     ).padStart(2, "0")}/${d.getFullYear()}`;
+  }
+
+  function formatLocalDate(date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}-${String(date.getDate()).padStart(2, "0")}`;
+  }
+
+  function getMonthRange(date) {
+    const y = date.getFullYear();
+    const m = date.getMonth();
+    return {
+      start: new Date(y, m, 1),
+      end: new Date(y, m + 1, 0),
+    };
+  }
+
+  function buildCalendarDays(date) {
+    const { start, end } = getMonthRange(date);
+    const days = [];
+    const firstDay = start.getDay(); // 0=CN
+
+    for (let i = 0; i < firstDay; i++) days.push(null);
+    for (let d = 1; d <= end.getDate(); d++) {
+      days.push(new Date(start.getFullYear(), start.getMonth(), d));
+    }
+
+    return days;
   }
 
   function groupByDate(list) {
@@ -97,6 +130,20 @@ export default function BookingsAdmin() {
     return car ? car.name_vi : code;
   }
 
+  // Multi-day booking: trải từ date -> return_date
+  function expandDates(b) {
+    if (!b.date) return [];
+    const start = new Date(b.date);
+    const end = b.return_date ? new Date(b.return_date) : start;
+    const arr = [];
+    let cur = new Date(start);
+
+    while (cur <= end) {
+      arr.push(formatLocalDate(cur));
+      cur.setDate(cur.getDate() + 1);
+    }
+    return arr;
+  }
   /* =========================================================================
      LOADERS
   ========================================================================= */
@@ -191,12 +238,10 @@ export default function BookingsAdmin() {
      DELETE BOOKING (DÙNG POPUP CONFIRM)
   ========================================================================= */
 
-  // Khi bấm nút xoá -> chỉ mở popup
   const askDelete = (id) => {
     setConfirmDelete({ show: true, id });
   };
 
-  // Khi bấm "Xoá" trong popup
   const handleConfirmDelete = async () => {
     if (!confirmDelete.id) return;
 
@@ -216,7 +261,7 @@ export default function BookingsAdmin() {
   };
 
   /* =========================================================================
-     SAVE (ADD / EDIT) — GIỮ NGUYÊN LOGIC CỦA BẠN
+     SAVE (ADD / EDIT)
   ========================================================================= */
 
   const handleSave = async () => {
@@ -251,18 +296,96 @@ export default function BookingsAdmin() {
   };
 
   /* =========================================================================
-     UI
+     CALENDAR DATA (DESKTOP)
   ========================================================================= */
 
-  const grouped = groupByDate(bookings);
+  const grouped = groupByDate(bookings); // dùng cho mobile
+
+  const t = new Date();
+  const todayStr = formatLocalDate(t);
+  const days = buildCalendarDays(currentMonth);
+
+  const bookingsByDate = {};
+  bookings.forEach((b) => {
+    const dayList = expandDates(b);
+    dayList.forEach((dayStr) => {
+      if (!bookingsByDate[dayStr]) bookingsByDate[dayStr] = [];
+      bookingsByDate[dayStr].push({
+        ...b,
+        isStart: dayStr === b.date,
+        isEnd: b.return_date ? dayStr === b.return_date : true,
+        multi: dayList.length > 1,
+      });
+    });
+  });
+
+  const monthLabel = currentMonth.toLocaleDateString("vi-VN", {
+    month: "long",
+    year: "numeric",
+  });
+  /* =========================================================================
+     RENDER
+  ========================================================================= */
 
   return (
     <div className="p-6 text-slate-200 relative">
-      {/* HEADER */}
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">
-          Quản lý Booking (30 ngày tới)
-        </h1>
+      {/* HEADER + SEARCH */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+
+        <div className="flex items-center gap-4 flex-1">
+          <h1 className="text-2xl font-bold whitespace-nowrap">
+            Quản lý Booking
+          </h1>
+
+          <input
+            placeholder="Tìm kiếm tên hoặc số điện thoại..."
+            className="bg-slate-700 p-3 rounded-lg w-full sm:max-w-xs"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  setCurrentMonth((prev) => {
+                    const d = new Date(prev);
+                    d.setMonth(d.getMonth() - 1);
+                    const first = new Date(d.getFullYear(), d.getMonth(), 1);
+                    const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+                    setFromDate(first.toISOString().split("T")[0]);
+                    setToDate(last.toISOString().split("T")[0]);
+                    return first;
+                  });
+                }}
+                className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600"
+              >
+                <HiChevronLeft />
+              </button>
+
+              <div className="text-lg font-semibold">{monthLabel}</div>
+
+              <button
+                onClick={() => {
+                  setCurrentMonth((prev) => {
+                    const d = new Date(prev);
+                    d.setMonth(d.getMonth() + 1);
+                    const first = new Date(d.getFullYear(), d.getMonth(), 1);
+                    const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+                    setFromDate(first.toISOString().split("T")[0]);
+                    setToDate(last.toISOString().split("T")[0]);
+                    return first;
+                  });
+                }}
+                className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600"
+              >
+                <HiChevronRight />
+              </button>
+            </div>
+
+
+        </div>
+
+
+
         <button
           className="px-4 py-2 bg-blue-600 rounded-lg flex items-center gap-2"
           onClick={() => {
@@ -275,42 +398,7 @@ export default function BookingsAdmin() {
         </button>
       </div>
 
-      {/* FILTER */}
-      <div className="bg-slate-800/60 p-4 rounded-xl mb-6 border border-slate-700">
-        <input
-          placeholder="Tìm kiếm tên hoặc số điện thoại..."
-          className="bg-slate-700 p-3 rounded-lg w-full mb-3"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-
-        <div className="grid grid-cols-2 gap-4">
-          <input
-            type="date"
-            className="bg-slate-700 p-3 rounded-lg"
-            value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
-          />
-          <input
-            type="date"
-            className="bg-slate-700 p-3 rounded-lg"
-            value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
-          />
-        </div>
-
-        <button
-          className="w-full py-2 mt-3 bg-blue-600 rounded-lg"
-          onClick={() => {
-            setFromDate(defaultFrom);
-            setToDate(defaultTo);
-          }}
-        >
-          30 ngày tới
-        </button>
-      </div>
-
-      {/* MOBILE ACCORDION */}
+      {/* MOBILE LIST (giữ nguyên) */}
       <div className="sm:hidden space-y-4">
         {grouped.map(([date, items]) => (
           <MobileAccordionDay
@@ -335,79 +423,126 @@ export default function BookingsAdmin() {
         ))}
       </div>
 
-      {/* DESKTOP GRID */}
+      {/* DESKTOP CALENDAR VIEW */}
       <div className="hidden sm:block">
-        {grouped.map(([date, items]) => (
-          <div key={date} className="mb-10">
-            <h2 className="text-xl font-bold mb-4">
-              📅 {formatDateVN(date)}
-            </h2>
+        {/* Month navigation */}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {items.map((b) => (
+
+        {/* CALENDAR GRID */}
+        <div className="grid grid-cols-7 bg-[#0a0d1a] rounded-xl overflow-hidden border border-slate-700">
+          {["CN", "T2", "T3", "T4", "T5", "T6", "T7"].map((d) => (
+            <div
+              key={d}
+              className="px-2 py-2 text-center text-sm bg-[#0d1326] border-b border-slate-700 text-slate-300"
+            >
+              {d}
+            </div>
+          ))}
+
+          {days.map((day, idx) => {
+            if (!day)
+              return (
                 <div
-                  key={b.id}
-                  onClick={() => {
-                    setForm(rowToForm(b));
-                    setModalMode("view");
-                    setModalOpen(true);
-                  }}
-                  className="bg-[#1E2538] border border-slate-600/40 rounded-2xl p-5 shadow-lg
-                    cursor-pointer hover:border-blue-500/50 hover:shadow-blue-900/30 transition-all"
-                >
-                  <div className="text-xl font-semibold text-white mb-1">
-                    {b.full_name}
-                  </div>
+                  key={idx}
+                  className="h-[120px] bg-[#0c1322]/40 border-r border-b border-slate-700"
+                />
+              );
 
-                  <div className="flex items-center gap-2 text-slate-300 text-sm mb-3">
-                    <span>{getRouteName(b.route)}</span>
-                    <span className="text-slate-500">•</span>
-                    <span className="px-2 py-0.5 bg-slate-700/60 rounded-lg text-xs border border-slate-600 whitespace-nowrap">
-                      {getCarName(b.car_type)}
-                    </span>
-                  </div>
+            const dateStr = formatLocalDate(day);
+            const list = bookingsByDate[dateStr] || [];
+            const isToday = dateStr === todayStr;
 
-                  <div className="space-y-1 text-sm text-slate-400 mb-4">
-                    <div>SĐT: {b.phone}</div>
-                    <div>Giờ đi: {b.time}</div>
-                  </div>
-
-                  <div className="flex justify-between items-center">
-                    <div className="text-green-400 font-bold text-2xl">
-                      {b.total_price.toLocaleString("vi-VN")} đ
-                    </div>
-
-                    <div className="flex gap-3">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setForm(rowToForm(b));
-                          setModalMode("edit");
-                          setModalOpen(true);
-                        }}
-                        className="p-2 rounded-lg hover:bg-slate-700 transition"
-                      >
-                        <HiPencil className="text-slate-200" />
-                      </button>
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          askDelete(b.id);
-                        }}
-                        className="p-2 rounded-lg hover:bg-red-600/70 text-red-400 hover:text-white transition"
-                      >
-                        <HiTrash />
-                      </button>
-                    </div>
+            return (
+              <div
+                key={dateStr}
+                className="border-r border-b border-slate-700 px-2 pt-2 bg-[#0c1322] align-top"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <div
+                    className={`w-7 h-7 flex items-center justify-center rounded-full text-xs ${isToday ? "bg-blue-500 text-white" : "text-slate-300"
+                      }`}
+                  >
+                    {day.getDate()}
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
 
+                <div className="space-y-1">
+                  {list.map((b) => (
+                    <div
+                      key={b.id}
+                      onClick={() => {
+                        setForm(rowToForm(b));
+                        setModalMode("view");
+                        setModalOpen(true);
+                      }}
+                      className={`w-full px-2 py-2 text-[11px] border border-slate-700/70 text-left rounded cursor-pointer
+      ${b.multi ? "bg-blue-900/50" : "bg-slate-800/80"}
+      ${b.isStart ? "rounded-l-lg border-l-4 border-l-emerald-400" : ""}
+      ${b.isEnd ? "rounded-r-lg border-r-4 border-r-emerald-400" : ""}
+      hover:bg-slate-700/80
+    `}
+                    >
+                      {/* Tuyến */}
+                      <div className="truncate font-semibold text-slate-200">
+                        {getRouteName(b.route)}
+                      </div>
+
+                      {/* Loại xe */}
+                      <div className="text-[10px] text-slate-400 mb-1">
+                        {getCarName(b.car_type)}
+                      </div>
+
+                      {/* Giá */}
+                      <div className="text-green-400 font-bold text-[12px] mb-2">
+                        {b.total_price.toLocaleString("vi-VN")} đ
+                      </div>
+
+                      {/* Giờ + nút edit/delete */}
+                      <div className="flex justify-between items-center">
+                        <span className="text-emerald-300 font-semibold text-[12px]">
+                          {b.time}
+                        </span>
+
+                        <div className="flex gap-1">
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setForm(rowToForm(b));
+                              setModalMode("edit");
+                              setModalOpen(true);
+                            }}
+                            className="p-1 rounded bg-slate-700/80 hover:bg-slate-600 cursor-pointer"
+                          >
+                            <HiPencil className="w-3 h-3" />
+                          </div>
+
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              askDelete(b.id);
+                            }}
+                            className="p-1 rounded bg-red-700/70 hover:bg-red-600 text-red-100 cursor-pointer"
+                          >
+                            <HiTrash className="w-3 h-3" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+
+
+                  {list.length === 0 && (
+                    <div className="text-[10px] text-slate-500 italic">
+                      Không có chuyến
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
       {/* LOADING OVERLAY */}
       {(loadingPage || loadingDelete) && (
         <div className="fixed inset-0 bg-black/30 flex justify-center items-center z-[999]">
@@ -441,7 +576,7 @@ export default function BookingsAdmin() {
         />
       )}
 
-      {/* POPUP CONFIRM XOÁ BOOKING */}
+      {/* POPUP CONFIRM DELETE */}
       {confirmDelete.show && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1500]">
           <div className="bg-slate-800 border border-slate-600 rounded-xl p-5 w-[90%] max-w-sm">
@@ -583,8 +718,8 @@ function ModalViewEdit({
           {modalMode === "add"
             ? "Thêm Booking"
             : modalMode === "edit"
-            ? "Sửa Booking"
-            : "Chi tiết Booking"}
+              ? "Sửa Booking"
+              : "Chi tiết Booking"}
         </h2>
 
         <div className="space-y-3 text-sm">
@@ -614,6 +749,7 @@ function ModalViewEdit({
             onChange={(v) => setForm({ ...form, route: v })}
             options={routes.map((r) => ({ value: r.code, label: r.name }))}
           />
+
           <SelectField
             label="Loại xe"
             readOnly={readOnly}
@@ -628,6 +764,7 @@ function ModalViewEdit({
             value={form.pickup_place}
             onChange={(v) => setForm({ ...form, pickup_place: v })}
           />
+
           <Field
             label="Điểm trả"
             readOnly={readOnly}
@@ -642,6 +779,7 @@ function ModalViewEdit({
             value={form.date}
             onChange={(v) => setForm({ ...form, date: v })}
           />
+
           <InputDateTime
             label="Giờ đi"
             type="time"
@@ -657,6 +795,7 @@ function ModalViewEdit({
             value={form.return_date}
             onChange={(v) => setForm({ ...form, return_date: v })}
           />
+
           <InputDateTime
             label="Giờ về (khứ hồi)"
             type="time"
@@ -695,6 +834,7 @@ function ModalViewEdit({
               setForm({ ...form, adult_count: Number(v) || 0 })
             }
           />
+
           <Field
             label="Số trẻ em"
             readOnly={readOnly}
@@ -712,6 +852,7 @@ function ModalViewEdit({
               setForm({ ...form, total_price: Number(v) || 0 })
             }
           />
+
           <Field
             label="Ghi chú"
             readOnly={readOnly}
@@ -727,6 +868,7 @@ function ModalViewEdit({
           >
             Đóng
           </button>
+
           {modalMode !== "view" && (
             <button
               className="px-4 py-2 bg-blue-600 rounded"
