@@ -19,7 +19,8 @@ import DriverLogin from "./pages/DriverLogin";
 import DriverDashboard from "./pages/DriverDashboard";
 import TaxiAdmin from "./pages/TaxiAdmin.jsx";
 import TaxiDriverAdmin from "./pages/TaxiDriverAdmin.jsx";
-
+import TaxiDriverLogin from "./pages/TaxiDriverLogin.jsx";
+import TaxiDriverReport from "./pages/TaxiDriverReport.jsx";
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <AuthProvider>
@@ -28,8 +29,11 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           {/* Login admin */}
           <Route path="/admin/login" element={<LoginPage />} />
           <Route path="/driver-login" element={<DriverLogin />} />
+          <Route path="/driver-login-taxi" element={<TaxiDriverLogin />} />
+
           <Route path="/driver-dashboard" element={<DriverDashboard />} />
           <Route path="/admin/schedule" element={<ScheduleCalendar />} />
+          <Route path="/taxi/driver/report" element={<TaxiDriverReport />} />
           {/* Admin dashboard */}
           <Route
             path="/admin/*"
