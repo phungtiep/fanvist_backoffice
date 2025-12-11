@@ -39,15 +39,17 @@ export default function TaxiDriverAdmin() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
 
+  // FORM PHÙ HỢP VỚI BẢNG HIỆN TẠI
   const [form, setForm] = useState({
-    id: null,          // PK uuid (do DB tự sinh)
+    id: null,
     full_name: "",
     phone: "",
     car_plate: "",
-    driver_id: "",     // 🔹 Mã tài xế / CCCD dùng để login
-    be_baseline: "",
-    sm_baseline: "",
+    driver_id: "",
+    be_wallet_init: "",
+    sm_wallet_init: "",
     driver_share: "",
+    note: "",
   });
 
   /* LOAD DATA */
@@ -78,15 +80,11 @@ export default function TaxiDriverAdmin() {
     }
 
     if (!form.driver_id) {
-      return showToastSetter(
-        setToast,
-        "Mã tài xế / CCCD (driver_id) không được trống",
-        "error"
-      );
+      return showToastSetter(setToast, "Mã tài xế / CCCD không được trống", "error");
     }
 
     if (!form.driver_share || Number(form.driver_share) <= 0) {
-      return showToastSetter(setToast, "Tỉ lệ ăn chia phải > 0%", "error");
+      return showToastSetter(setToast, "Tỉ lệ tài xế phải > 0%", "error");
     }
 
     setLoading(true);
@@ -96,10 +94,11 @@ export default function TaxiDriverAdmin() {
       full_name: form.full_name.trim(),
       phone: form.phone.trim(),
       car_plate: form.car_plate.trim(),
-      driver_id: form.driver_id.trim(),              // 🔹 lưu CCCD / mã lái xe
-      be_baseline: Number(form.be_baseline) || 0,
-      sm_baseline: Number(form.sm_baseline) || 0,
+      driver_id: form.driver_id.trim(),
+      be_wallet_init: Number(form.be_wallet_init) || 0,
+      sm_wallet_init: Number(form.sm_wallet_init) || 0,
       driver_share: Number(form.driver_share) || 0,
+      note: form.note || "",
     };
 
     if (editMode) {
@@ -128,12 +127,7 @@ export default function TaxiDriverAdmin() {
     if (!confirm("Xóa tài xế này?")) return;
 
     setLoading(true);
-
-    const { error } = await supabase
-      .from("driver_taxi")
-      .delete()
-      .eq("id", id);
-
+    const { error } = await supabase.from("driver_taxi").delete().eq("id", id);
     setLoading(false);
 
     if (error) {
@@ -154,9 +148,10 @@ export default function TaxiDriverAdmin() {
       phone: "",
       car_plate: "",
       driver_id: "",
-      be_baseline: "",
-      sm_baseline: "",
+      be_wallet_init: "",
+      sm_wallet_init: "",
       driver_share: "",
+      note: "",
     });
     setModalOpen(true);
   }
@@ -168,10 +163,11 @@ export default function TaxiDriverAdmin() {
       full_name: d.full_name,
       phone: d.phone,
       car_plate: d.car_plate,
-      driver_id: d.driver_id || "",
-      be_baseline: d.be_baseline,
-      sm_baseline: d.sm_baseline,
+      driver_id: d.driver_id,
+      be_wallet_init: d.be_wallet_init,
+      sm_wallet_init: d.sm_wallet_init,
       driver_share: d.driver_share,
+      note: d.note || "",
     });
     setModalOpen(true);
   }
@@ -195,7 +191,7 @@ export default function TaxiDriverAdmin() {
         </button>
       </div>
 
-      {/* TABLE LIST */}
+      {/* TABLE */}
       <div className="bg-slate-900/60 border border-slate-700 rounded-xl overflow-hidden">
         <div className="px-4 py-2 border-b border-slate-700 flex justify-between">
           <span className="font-semibold text-sm">Danh sách tài xế</span>
@@ -205,13 +201,13 @@ export default function TaxiDriverAdmin() {
         <table className="min-w-full text-sm">
           <thead className="bg-slate-900 text-slate-300 text-xs uppercase">
             <tr>
-              <th className="px-3 py-2 text-left">Tên tài xế</th>
+              <th className="px-3 py-2 text-left">Tên</th>
               <th className="px-3 py-2 text-left">SĐT</th>
-              <th className="px-3 py-2 text-left">Biển số xe</th>
-              <th className="px-3 py-2 text-left">Mã tài xế / CCCD</th>
-              <th className="px-3 py-2 text-right">Ví BE đầu ngày</th>
-              <th className="px-3 py-2 text-right">Ví SM đầu ngày</th>
-              <th className="px-3 py-2 text-right">% Tài xế</th>
+              <th className="px-3 py-2 text-left">Biển số</th>
+              <th className="px-3 py-2 text-left">Mã/CCCD</th>
+              <th className="px-3 py-2 text-right">Ví BE đầu</th>
+              <th className="px-3 py-2 text-right">Ví SM đầu</th>
+              <th className="px-3 py-2 text-right">% tài xế</th>
               <th className="px-3 py-2 text-right">Hành động</th>
             </tr>
           </thead>
@@ -234,8 +230,8 @@ export default function TaxiDriverAdmin() {
                 <td className="px-3 py-2">{d.phone}</td>
                 <td className="px-3 py-2">{d.car_plate}</td>
                 <td className="px-3 py-2">{d.driver_id}</td>
-                <td className="px-3 py-2 text-right">{d.be_baseline}</td>
-                <td className="px-3 py-2 text-right">{d.sm_baseline}</td>
+                <td className="px-3 py-2 text-right">{d.be_wallet_init}</td>
+                <td className="px-3 py-2 text-right">{d.sm_wallet_init}</td>
                 <td className="px-3 py-2 text-right">{d.driver_share}%</td>
 
                 <td className="px-3 py-2 flex justify-end gap-2">
@@ -287,8 +283,8 @@ export default function TaxiDriverAdmin() {
               />
 
               <Field
-                label="Mã tài xế / CCCD (driver_id)"
-                placeholder="Ví dụ: 079123456789"
+                label="Mã tài xế / CCCD"
+                placeholder="VD: 079123456789"
                 value={form.driver_id}
                 onChange={(v) => setForm({ ...form, driver_id: v })}
               />
@@ -296,23 +292,29 @@ export default function TaxiDriverAdmin() {
               <Field
                 label="Ví BE đầu ngày"
                 type="number"
-                value={form.be_baseline}
-                onChange={(v) => setForm({ ...form, be_baseline: v })}
+                value={form.be_wallet_init}
+                onChange={(v) => setForm({ ...form, be_wallet_init: v })}
               />
 
               <Field
                 label="Ví SM đầu ngày"
                 type="number"
-                value={form.sm_baseline}
-                onChange={(v) => setForm({ ...form, sm_baseline: v })}
+                value={form.sm_wallet_init}
+                onChange={(v) => setForm({ ...form, sm_wallet_init: v })}
               />
 
               <Field
-                label="% tài xế nhận (driver_share)"
+                label="% tài xế nhận"
                 type="number"
                 placeholder="VD: 50"
                 value={form.driver_share}
                 onChange={(v) => setForm({ ...form, driver_share: v })}
+              />
+
+              <Field
+                label="Ghi chú"
+                value={form.note}
+                onChange={(v) => setForm({ ...form, note: v })}
               />
             </div>
 
