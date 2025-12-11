@@ -183,6 +183,14 @@ function Sidebar({ closeMenu, onLogout }) {
       <NavLink to="/admin/revenue" className={linkClass} onClick={handleClick}>
         Báo cáo doanh thu
       </NavLink>
+
+      <NavLink to="/admin/taxi-driver" className={linkClass} onClick={handleClick}>
+        Quản lý tài xế taxi
+      </NavLink>
+
+      <NavLink to="/admin/taxi" className={linkClass} onClick={handleClick}>
+        Báo cáo doanh thu Taxi
+      </NavLink>
     </nav>
   );
 }
