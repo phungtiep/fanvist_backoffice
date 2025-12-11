@@ -40,10 +40,11 @@ export default function TaxiDriverAdmin() {
   const [editMode, setEditMode] = useState(false);
 
   const [form, setForm] = useState({
-    id: null,
+    id: null,          // PK uuid (do DB tự sinh)
     full_name: "",
     phone: "",
     car_plate: "",
+    driver_id: "",     // 🔹 Mã tài xế / CCCD dùng để login
     be_baseline: "",
     sm_baseline: "",
     driver_share: "",
@@ -76,6 +77,14 @@ export default function TaxiDriverAdmin() {
       return showToastSetter(setToast, "Tên & SĐT không được trống", "error");
     }
 
+    if (!form.driver_id) {
+      return showToastSetter(
+        setToast,
+        "Mã tài xế / CCCD (driver_id) không được trống",
+        "error"
+      );
+    }
+
     if (!form.driver_share || Number(form.driver_share) <= 0) {
       return showToastSetter(setToast, "Tỉ lệ ăn chia phải > 0%", "error");
     }
@@ -87,6 +96,7 @@ export default function TaxiDriverAdmin() {
       full_name: form.full_name.trim(),
       phone: form.phone.trim(),
       car_plate: form.car_plate.trim(),
+      driver_id: form.driver_id.trim(),              // 🔹 lưu CCCD / mã lái xe
       be_baseline: Number(form.be_baseline) || 0,
       sm_baseline: Number(form.sm_baseline) || 0,
       driver_share: Number(form.driver_share) || 0,
@@ -143,6 +153,7 @@ export default function TaxiDriverAdmin() {
       full_name: "",
       phone: "",
       car_plate: "",
+      driver_id: "",
       be_baseline: "",
       sm_baseline: "",
       driver_share: "",
@@ -157,6 +168,7 @@ export default function TaxiDriverAdmin() {
       full_name: d.full_name,
       phone: d.phone,
       car_plate: d.car_plate,
+      driver_id: d.driver_id || "",
       be_baseline: d.be_baseline,
       sm_baseline: d.sm_baseline,
       driver_share: d.driver_share,
@@ -196,6 +208,7 @@ export default function TaxiDriverAdmin() {
               <th className="px-3 py-2 text-left">Tên tài xế</th>
               <th className="px-3 py-2 text-left">SĐT</th>
               <th className="px-3 py-2 text-left">Biển số xe</th>
+              <th className="px-3 py-2 text-left">Mã tài xế / CCCD</th>
               <th className="px-3 py-2 text-right">Ví BE đầu ngày</th>
               <th className="px-3 py-2 text-right">Ví SM đầu ngày</th>
               <th className="px-3 py-2 text-right">% Tài xế</th>
@@ -206,7 +219,7 @@ export default function TaxiDriverAdmin() {
           <tbody>
             {drivers.length === 0 && (
               <tr>
-                <td colSpan={7} className="text-center py-4 text-slate-400">
+                <td colSpan={8} className="text-center py-4 text-slate-400">
                   Chưa có tài xế taxi nào
                 </td>
               </tr>
@@ -220,6 +233,7 @@ export default function TaxiDriverAdmin() {
                 <td className="px-3 py-2">{d.full_name}</td>
                 <td className="px-3 py-2">{d.phone}</td>
                 <td className="px-3 py-2">{d.car_plate}</td>
+                <td className="px-3 py-2">{d.driver_id}</td>
                 <td className="px-3 py-2 text-right">{d.be_baseline}</td>
                 <td className="px-3 py-2 text-right">{d.sm_baseline}</td>
                 <td className="px-3 py-2 text-right">{d.driver_share}%</td>
@@ -270,6 +284,13 @@ export default function TaxiDriverAdmin() {
                 label="Biển số xe"
                 value={form.car_plate}
                 onChange={(v) => setForm({ ...form, car_plate: v })}
+              />
+
+              <Field
+                label="Mã tài xế / CCCD (driver_id)"
+                placeholder="Ví dụ: 079123456789"
+                value={form.driver_id}
+                onChange={(v) => setForm({ ...form, driver_id: v })}
               />
 
               <Field
