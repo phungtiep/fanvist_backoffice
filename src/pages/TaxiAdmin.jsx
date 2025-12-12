@@ -34,6 +34,8 @@ export default function TaxiAdmin() {
   const [fromDate, setFromDate] = useState(formatDateInput(today));
   const [toDate, setToDate] = useState(formatDateInput(today));
 
+  const [selectedDriver, setSelectedDriver] = useState("all");
+
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
 
@@ -46,7 +48,7 @@ export default function TaxiAdmin() {
   }
 
   /* ============================
-    LOAD META: driver_taxi
+      LOAD META: driver_taxi
   ============================ */
   async function loadMeta() {
     const { data, error } = await supabase.from("driver_taxi").select("*");
@@ -65,17 +67,24 @@ export default function TaxiAdmin() {
   }
 
   /* ============================
-    LOAD REPORTS
+      LOAD REPORTS
   ============================ */
   async function loadReports() {
     setLoading(true);
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("driver_taxi_daily_reports")
       .select("*")
       .gte("report_date", fromDate)
-      .lte("report_date", toDate)
-      .order("report_date", { ascending: false });
+      .lte("report_date", toDate);
+
+    if (selectedDriver !== "all") {
+      query = query.eq("driver_taxi_id", selectedDriver);
+    }
+
+    const { data, error } = await query.order("report_date", {
+      ascending: false,
+    });
 
     setLoading(false);
 
@@ -115,13 +124,11 @@ export default function TaxiAdmin() {
 
       const delta_be = be_end - be_start;
       const delta_sm = sm_end - sm_start;
-      const delta_total = delta_be + delta_sm;
 
       /* =======================
           LƯƠNG THEO %
       ======================== */
       const share = Number(taxi.driver_share || 0);
-
       const driver_salary = (revenue_after_fee * share) / 100;
 
       const diff = driver_salary - cash;
@@ -145,7 +152,6 @@ export default function TaxiAdmin() {
         gross: revenue_after_fee,
         delta_be,
         delta_sm,
-        delta_total,
         driver_salary,
         driver_take,
         driver_payback,
@@ -157,9 +163,8 @@ export default function TaxiAdmin() {
   }
 
   /* ============================
-    SUMMARY
+      SUMMARY
   ============================ */
-
   const totalRevBefore = reports.reduce(
     (s, r) => s + (r.revenue_before_fee || 0),
     0
@@ -193,12 +198,15 @@ export default function TaxiAdmin() {
   );
 
   const totalFuel = reports.reduce((s, r) => s + Number(r.fuel_cost || 0), 0);
-  const totalOther = reports.reduce((s, r) => s + Number(r.other_cost || 0), 0);
+
+  const totalOther = reports.reduce(
+    (s, r) => s + Number(r.other_cost || 0),
+    0
+  );
 
   /* ============================
-    EFFECTS
+      EFFECTS
   ============================ */
-
   useEffect(() => {
     loadMeta();
   }, []);
@@ -207,17 +215,17 @@ export default function TaxiAdmin() {
     if (Object.keys(driverTaxiMap).length > 0) {
       loadReports();
     }
-  }, [fromDate, toDate, driverTaxiMap]);
+  }, [fromDate, toDate, selectedDriver, driverTaxiMap]);
 
   /* ============================
-    RENDER
+      RENDER
   ============================ */
 
   return (
     <div className="p-6 text-slate-200">
 
       {/* ============================
-          SUMMARY — 3 Ô MỚI
+          HEADER + FILTERS
       ============================ */}
       <div className="flex flex-col md:flex-row md:justify-between gap-4 mb-6">
         <h1 className="text-3xl font-bold">
@@ -225,6 +233,23 @@ export default function TaxiAdmin() {
         </h1>
 
         <div className="flex gap-3 items-end">
+          {/* SELECT DRIVER */}
+          <div>
+            <label className="text-xs text-slate-400">Tài xế</label>
+            <select
+              className="bg-slate-700 px-3 py-2 rounded block"
+              value={selectedDriver}
+              onChange={(e) => setSelectedDriver(e.target.value)}
+            >
+              <option value="all">Tất cả tài xế</option>
+              {Object.values(driverTaxiMap).map((tx) => (
+                <option key={tx.id} value={tx.id}>
+                  {tx.full_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div>
             <label className="text-xs text-slate-400">Từ ngày</label>
             <input
@@ -258,6 +283,9 @@ export default function TaxiAdmin() {
         </div>
       </div>
 
+      {/* ============================
+          TOP SUMMARY (3 BOX)
+      ============================ */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <SummaryCard
           label="Doanh thu trước phí"
@@ -277,29 +305,28 @@ export default function TaxiAdmin() {
       </div>
 
       {/* ============================
-          HEADER CŨ — GIỮ NGUYÊN
-      ============================ */}
-      
-
-      {/* ============================
-          SUMMARY CŨ — GIỮ NGUYÊN
+          SUMMARY BLOCK CŨ
       ============================ */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+
         <SummaryCard
           label="Tổng lương tài xế (theo %)"
           value={totalDriverSalary}
           color="text-emerald-400"
         />
+
         <SummaryCard
           label="Tổng chủ xe lợi nhuận"
           value={totalOwnerProfit}
           color="text-yellow-300"
         />
+
         <SummaryCard
           label="Tổng chi phí (nhiên liệu + khác)"
           value={totalFuel + totalOther}
           color="text-red-400"
         />
+
         <SummaryCard
           label="Doanh thu sau phí"
           value={totalRevAfter}
@@ -308,7 +335,7 @@ export default function TaxiAdmin() {
       </div>
 
       {/* ============================
-          EXTRA SUMMARY CŨ — GIỮ NGUYÊN
+          EXTRA SUMMARY
       ============================ */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <SummaryCard
@@ -324,7 +351,7 @@ export default function TaxiAdmin() {
       </div>
 
       {/* ============================
-          TABLE — GIỮ NGUYÊN UI
+          TABLE DỮ LIỆU
       ============================ */}
       <div className="bg-slate-900/60 border border-slate-700 rounded-xl overflow-hidden">
         <div className="px-4 py-2 border-b border-slate-700 flex justify-between items-center">
@@ -356,7 +383,7 @@ export default function TaxiAdmin() {
                     colSpan={8}
                     className="px-4 py-6 text-center text-slate-400"
                   >
-                    Không có dữ liệu trong khoảng ngày đã chọn
+                    Không có dữ liệu
                   </td>
                 </tr>
               )}
@@ -368,6 +395,7 @@ export default function TaxiAdmin() {
                     : r.delta_be < 0
                     ? "text-red-300"
                     : "text-slate-300";
+
                 const smDeltaClass =
                   r.delta_sm > 0
                     ? "text-emerald-300"
@@ -391,7 +419,9 @@ export default function TaxiAdmin() {
                     <td className="px-3 py-3 align-top">
                       <div className="font-semibold">{r.driverName}</div>
                       {r.driverPhone && (
-                        <div className="text-xs text-slate-400">{r.driverPhone}</div>
+                        <div className="text-xs text-slate-400">
+                          {r.driverPhone}
+                        </div>
                       )}
                       <div className="text-xs text-slate-500 mt-1">
                         Biển số: {r.carPlate}
@@ -420,48 +450,43 @@ export default function TaxiAdmin() {
                         {formatVNAmount(r.sm_revenue)}
                       </div>
 
-                      <div className="text-[11px] text-slate-400 mt-1">
-                        Tiền mặt: {formatVNAmount(r.cash_revenue)}
-                      </div>
-
                       <div className="text-[11px] text-slate-400">
-                        Nhiên liệu: {formatVNAmount(r.fuel_cost)} • Khác:{" "}
-                        {formatVNAmount(r.other_cost)}
+                        Tiền mặt: {formatVNAmount(r.cash_revenue)}
                       </div>
                     </td>
 
                     {/* VÍ BE */}
                     <td className="px-3 py-3 align-top">
                       <div className="text-xs text-slate-300">
-                        Đầu ngày: {formatVNAmount(r.be_wallet_start)}
+                        Đầu: {formatVNAmount(r.be_wallet_start)}
                       </div>
                       <div className="text-xs text-slate-300">
-                        Cuối ngày: {formatVNAmount(r.be_wallet_end)}
+                        Cuối: {formatVNAmount(r.be_wallet_end)}
                       </div>
                       <div className={`text-[11px] mt-1 ${beDeltaClass}`}>
-                        Δ ví: {formatVNAmount(r.delta_be)}
+                        Δ {formatVNAmount(r.delta_be)}
                       </div>
                     </td>
 
                     {/* VÍ SM */}
                     <td className="px-3 py-3 align-top">
                       <div className="text-xs text-slate-300">
-                        Đầu ngày: {formatVNAmount(r.sm_wallet_start)}
+                        Đầu: {formatVNAmount(r.sm_wallet_start)}
                       </div>
                       <div className="text-xs text-slate-300">
-                        Cuối ngày: {formatVNAmount(r.sm_wallet_end)}
+                        Cuối: {formatVNAmount(r.sm_wallet_end)}
                       </div>
                       <div className={`text-[11px] mt-1 ${smDeltaClass}`}>
-                        Δ ví: {formatVNAmount(r.delta_sm)}
+                        Δ {formatVNAmount(r.delta_sm)}
                       </div>
                     </td>
 
-                    {/* LƯƠNG TÀI XẾ */}
+                    {/* LƯƠNG */}
                     <td className="px-3 py-3 align-top text-right">
                       <div className="font-semibold text-emerald-300">
                         {formatVNAmount(r.driver_salary)}
                       </div>
-                      <div className="text-[11px] text-slate-400 mt-1">
+                      <div className="text-[11px] text-slate-400">
                         TX nhận thêm:{" "}
                         <span className="text-emerald-300">
                           {formatVNAmount(r.driver_take)}
@@ -475,15 +500,15 @@ export default function TaxiAdmin() {
                       </div>
                     </td>
 
-                    {/* LỢI NHUẬN CHỦ XE */}
+                    {/* OWNER PROFIT */}
                     <td className="px-3 py-3 align-top text-right">
                       <div className="font-semibold text-yellow-300">
                         {formatVNAmount(r.owner_profit)}
                       </div>
                     </td>
 
-                    {/* GHI CHÚ */}
-                    <td className="px-3 py-3 align-top max-w-[220px]">
+                    {/* NOTE */}
+                    <td className="px-3 py-3 align-top max-w-[240px]">
                       <div className="text-xs text-slate-300 whitespace-pre-wrap">
                         {r.note || "—"}
                       </div>
@@ -506,7 +531,7 @@ export default function TaxiAdmin() {
         </div>
       )}
 
-      {/* LOADING OVERLAY */}
+      {/* LOADING */}
       {loading && (
         <div className="fixed inset-0 bg-black/30 flex justify-center items-center z-[999]">
           <div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin" />
