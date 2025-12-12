@@ -83,7 +83,7 @@ export default function TaxiAdmin() {
     }
 
     const { data, error } = await query.order("report_date", {
-      ascending: false,
+      ascending: true,
     });
 
     setLoading(false);
