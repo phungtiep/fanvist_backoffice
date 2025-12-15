@@ -13,8 +13,8 @@ export default function BookingsAdmin() {
   const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const lastOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-  const defaultFrom = firstOfMonth.toISOString().split("T")[0];
-  const defaultTo = lastOfMonth.toISOString().split("T")[0];
+  const defaultFrom = formatLocalDate(firstOfMonth);
+  const defaultTo = formatLocalDate(lastOfMonth);
 
   const [currentMonth, setCurrentMonth] = useState(firstOfMonth);
 
@@ -130,6 +130,11 @@ export default function BookingsAdmin() {
     return car ? car.name_vi : code;
   }
 
+  function formatLocalDate(date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  }
+
+
   // Multi-day booking: trải từ date -> return_date
   function expandDates(b) {
     if (!b.date) return [];
@@ -158,14 +163,22 @@ export default function BookingsAdmin() {
       );
     }
 
-    query = query.gte("date", fromDate).lte("date", toDate);
+    query = query.lte("date", toDate);
+
 
     const { data, error } = await query;
     setLoadingPage(false);
 
     if (!error && data) {
+      const filtered = data.filter((b) => {
+        const start = b.date;
+        const end = b.return_date ? b.return_date : b.date;
+
+        return start <= toDate && end >= fromDate;
+      });
+
       setBookings(
-        [...data].sort((a, b) => {
+        filtered.sort((a, b) => {
           const d1 = new Date(a.date);
           const d2 = new Date(b.date);
           if (d1 - d2 !== 0) return d1 - d2;
@@ -323,6 +336,39 @@ export default function BookingsAdmin() {
     month: "long",
     year: "numeric",
   });
+
+  const prevMonth = () => {
+    setCurrentMonth((prev) => {
+      const y = prev.getFullYear();
+      const m = prev.getMonth() - 1;
+      const first = new Date(y, m, 1);
+      const last = new Date(y, m + 1, 0);
+      setFromDate(formatLocalDate(first));
+      setToDate(formatLocalDate(last));
+      return first;
+    });
+  };
+
+  const nextMonth = () => {
+    setCurrentMonth((prev) => {
+      const y = prev.getFullYear();
+      const m = prev.getMonth() + 1;
+      const first = new Date(y, m, 1);
+      const last = new Date(y, m + 1, 0);
+      setFromDate(formatLocalDate(first));
+      setToDate(formatLocalDate(last));
+      return first;
+    });
+  };
+
+  const openAdd = () => {
+    setForm(rowToForm({}));
+    setModalMode("add");
+    setModalOpen(true);
+  };
+
+
+
   /* =========================================================================
      RENDER
   ========================================================================= */
@@ -330,73 +376,139 @@ export default function BookingsAdmin() {
   return (
     <div className="p-6 text-slate-200 relative">
       {/* HEADER + SEARCH */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+      {/* ===== DESKTOP HEADER ===== */}
+      <div className="hidden sm:block">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
 
-        <div className="flex items-center gap-4 flex-1">
-          <h1 className="text-2xl font-bold whitespace-nowrap">
-            Quản lý Booking
-          </h1>
+          <div className="flex items-center gap-4 flex-1">
+            <h1 className="text-2xl font-bold whitespace-nowrap">
+              Quản lý Booking
+            </h1>
 
-          <input
-            placeholder="Tìm kiếm tên hoặc số điện thoại..."
-            className="bg-slate-700 p-3 rounded-lg w-full sm:max-w-xs"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <div className="flex items-center gap-3">
-              <button
-                onClick={() => {
-                  setCurrentMonth((prev) => {
-                    const d = new Date(prev);
-                    d.setMonth(d.getMonth() - 1);
-                    const first = new Date(d.getFullYear(), d.getMonth(), 1);
-                    const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-                    setFromDate(first.toISOString().split("T")[0]);
-                    setToDate(last.toISOString().split("T")[0]);
-                    return first;
-                  });
-                }}
-                className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600"
-              >
+            <input
+              placeholder="Tìm kiếm tên hoặc số điện thoại..."
+              className="bg-slate-700 p-3 rounded-lg w-full sm:max-w-xs"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+
+            <div className="flex items-center gap-3">
+              {/* prev */}
+              <button onClick={prevMonth} className="p-2 rounded-lg bg-slate-700">
                 <HiChevronLeft />
               </button>
 
               <div className="text-lg font-semibold">{monthLabel}</div>
 
-              <button
-                onClick={() => {
-                  setCurrentMonth((prev) => {
-                    const d = new Date(prev);
-                    d.setMonth(d.getMonth() + 1);
-                    const first = new Date(d.getFullYear(), d.getMonth(), 1);
-                    const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-                    setFromDate(first.toISOString().split("T")[0]);
-                    setToDate(last.toISOString().split("T")[0]);
-                    return first;
-                  });
-                }}
-                className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600"
-              >
+              {/* next */}
+              <button onClick={nextMonth} className="p-2 rounded-lg bg-slate-700">
                 <HiChevronRight />
               </button>
             </div>
+          </div>
 
+          <button
+            className="px-4 py-2 bg-blue-600 rounded-lg flex items-center gap-2"
+            onClick={openAdd}
+          >
+            <HiPlus /> Thêm Booking
+          </button>
 
         </div>
-
-
-
-        <button
-          className="px-4 py-2 bg-blue-600 rounded-lg flex items-center gap-2"
-          onClick={() => {
-            setForm(rowToForm({}));
-            setModalMode("add");
-            setModalOpen(true);
-          }}
-        >
-          <HiPlus /> Thêm Booking
-        </button>
       </div>
+
+      {/* ===== MOBILE HEADER ===== */}
+      {/* ===== MOBILE HEADER CARD ===== */}
+      <div className="sm:hidden mb-4 px-0">
+        <div
+          className="
+      mx-auto
+      w-full
+      max-w-[420px]
+      rounded-2xl
+      bg-[#0b1220]/90
+      border border-slate-700/60
+      shadow-lg
+      p-4
+      space-y-4
+    "
+        >
+          {/* Title + Add */}
+          <div className="flex items-center justify-between">
+            <h1 className="text-xl font-bold text-white">
+              Quản lý Booking
+            </h1>
+
+            <button
+              onClick={openAdd}
+              className="
+          w-10 h-10
+          rounded-xl
+          bg-blue-600
+          flex items-center justify-center
+          text-white
+          text-xl
+        "
+            >
+              +
+            </button>
+          </div>
+
+          {/* Search */}
+          <input
+            placeholder="Tìm tên hoặc SĐT..."
+            className="
+        w-full
+        bg-slate-700/80
+        border border-slate-600
+        focus:border-blue-500
+        focus:ring-2 focus:ring-blue-500/40
+        rounded-xl
+        px-4 py-3
+        text-slate-100
+        placeholder:text-slate-400
+        outline-none
+      "
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+
+          {/* Month nav */}
+          <div className="flex items-center justify-between">
+            <button
+              onClick={prevMonth}
+              className="
+          w-10 h-10
+          rounded-xl
+          bg-slate-700/80
+          flex items-center justify-center
+          text-slate-200
+        "
+            >
+              <HiChevronLeft />
+            </button>
+
+            <div className="text-base font-semibold text-slate-100">
+              {monthLabel}
+            </div>
+
+            <button
+              onClick={nextMonth}
+              className="
+          w-10 h-10
+          rounded-xl
+          bg-slate-700/80
+          flex items-center justify-center
+          text-slate-200
+        "
+            >
+              <HiChevronRight />
+            </button>
+          </div>
+        </div>
+      </div>
+
+
 
       {/* MOBILE LIST (giữ nguyên) */}
       <div className="sm:hidden space-y-4">
