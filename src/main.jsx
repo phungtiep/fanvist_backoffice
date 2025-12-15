@@ -21,6 +21,7 @@ import TaxiAdmin from "./pages/TaxiAdmin.jsx";
 import TaxiDriverAdmin from "./pages/TaxiDriverAdmin.jsx";
 import TaxiDriverLogin from "./pages/TaxiDriverLogin.jsx";
 import TaxiDriverReport from "./pages/TaxiDriverReport.jsx";
+
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <AuthProvider>

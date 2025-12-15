@@ -13,7 +13,7 @@ export default function LoginPage() {
 
   if (user) {
     // Đã login rồi thì không cần vào lại trang login
-    navigate("/admin/routes");
+    navigate("/admin/bookings");
   }
 
   const handleSubmit = async (e) => {
@@ -31,7 +31,7 @@ export default function LoginPage() {
     if (error) {
       setErrorMsg(error.message || "Đăng nhập thất bại");
     } else {
-      navigate("/admin/routes");
+      navigate("/admin/bookings");
     }
   };
 
