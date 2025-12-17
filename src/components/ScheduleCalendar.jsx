@@ -129,18 +129,29 @@ export default function ScheduleCalendar() {
 
     async function loadBookings() {
         setLoading(true);
+
         const { from, to } = getMonthRange(currentMonth);
 
+        // 👉 Query RỘNG: chỉ chặn mốc trên
         const { data, error } = await supabase
             .from("bookings")
             .select("*")
-            .gte("date", from)
-            .lte("date", to)
+            .lte("date", to)          // booking bắt đầu trước khi tháng kết thúc
             .order("date")
             .order("time");
 
-        if (!error) {
-            setBookings(data || []);
+        if (!error && data) {
+            // 👉 FILTER OVERLAP Ở FRONTEND (QUAN TRỌNG)
+            const filtered = data.filter((b) => {
+                const start = b.date;
+                const end = b.return_date && b.return_date !== ""? b.return_date: b.date;
+
+
+                // booking giao với khoảng tháng
+                return start <= to && end >= from;
+            });
+
+            setBookings(filtered);
             loadAssignments(); // ⭐ LOAD MÀU PHÂN CÔNG
         }
 
@@ -372,8 +383,8 @@ export default function ScheduleCalendar() {
                             <div className="w-full flex justify-center mb-1">
                                 <div
                                     className={`w-7 h-7 flex items-center justify-center rounded-full text-xs ${isToday
-                                            ? "bg-blue-500 text-white"
-                                            : "text-slate-300"
+                                        ? "bg-blue-500 text-white"
+                                        : "text-slate-300"
                                         }`}
                                 >
                                     {day.getDate()}
@@ -389,10 +400,9 @@ export default function ScheduleCalendar() {
                                             key={b.id}
                                             onClick={() => openAssignModal(b)}
                                             className={`w-full px-2 py-1 text-[10px] text-left rounded border
-                                                ${
-                                                    isAssigned
-                                                        ? "bg-slate-800/80 border-slate-700/70"
-                                                        : "bg-red-900/40 border-red-500/50 text-red-300"
+                                                ${isAssigned
+                                                    ? "bg-slate-800/80 border-slate-700/70"
+                                                    : "bg-red-900/40 border-red-500/50 text-red-300"
                                                 }
                                                 ${b.isStart ? "rounded-l-lg border-l-4 border-l-emerald-400" : ""}
                                                 ${b.isEnd ? "rounded-r-lg border-r-4 border-r-emerald-400" : ""}
@@ -429,11 +439,10 @@ export default function ScheduleCalendar() {
             {/* TOAST */}
             {toast && (
                 <div
-                    className={`fixed top-5 right-5 px-4 py-2 rounded shadow-lg text-white z-50 ${
-                        toast.type === "success"
+                    className={`fixed top-5 right-5 px-4 py-2 rounded shadow-lg text-white z-50 ${toast.type === "success"
                             ? "bg-green-600"
                             : "bg-red-600"
-                    }`}
+                        }`}
                 >
                     {toast.message}
                 </div>
@@ -474,8 +483,8 @@ export default function ScheduleCalendar() {
                                 {selectedBooking.time}
                                 {selectedBooking.return_date
                                     ? ` • Về: ${formatDateVN(
-                                          selectedBooking.return_date
-                                      )}`
+                                        selectedBooking.return_date
+                                    )}`
                                     : ""}
                             </div>
                         </div>
