@@ -1,7 +1,7 @@
 // src/pages/BookingsAdmin.jsx
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase.js";
-import { HiTrash, HiPencil, HiPlus, HiChevronLeft, HiChevronRight } from "react-icons/hi2";
+import { HiTrash, HiPencil, HiPlus, HiChevronLeft, HiChevronRight, HiClipboard } from "react-icons/hi2";
 
 /* =========================================================================
    MAIN COMPONENT — BOOKINGS ADMIN (MOBILE LIST + DESKTOP CALENDAR)
@@ -148,6 +148,34 @@ export default function BookingsAdmin() {
       cur.setDate(cur.getDate() + 1);
     }
     return arr;
+  }
+
+  /* =========================================================================
+     COPY BOOKING INFO
+  ========================================================================= */
+  function formatBookingText(b, routeName, carName) {
+    return `📌 Thông tin đặt xe mới
+———————————————
+👤 Họ tên: ${b.full_name}
+📞 SĐT: ${b.phone}
+📧 Email: ${b.email || '—'}
+🚗 Tuyến: ${routeName}
+🚘 Loại xe: ${carName}
+📍 Điểm đón: ${b.pickup_place || '—'}
+🏁 Điểm trả: ${b.dropoff_place || '—'}
+📅 Ngày đi: ${formatDateVN(b.date)}
+⏰ Giờ đi: ${b.time}
+📝 Ghi chú: ${b.note || '—'}
+🤑 Tổng tiền: ${(b.total_price || 0).toLocaleString("vi-VN")} đ
+———————————————`;
+  }
+
+  function copyBooking(b) {
+    const routeName = getRouteName(b.route);
+    const carName = getCarName(b.car_type);
+    const text = formatBookingText(b, routeName, carName);
+    navigator.clipboard.writeText(text);
+    showToast("Đã copy thông tin booking!");
   }
   /* =========================================================================
      LOADERS
@@ -531,6 +559,7 @@ export default function BookingsAdmin() {
             askDelete={askDelete}
             getRouteName={getRouteName}
             getCarName={getCarName}
+            copyBooking={copyBooking}
           />
         ))}
       </div>
@@ -616,6 +645,17 @@ export default function BookingsAdmin() {
                         </span>
 
                         <div className="flex gap-1">
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              copyBooking(b);
+                            }}
+                            className="p-1 rounded bg-blue-700/70 hover:bg-blue-600 text-blue-100 cursor-pointer"
+                            title="Copy thông tin"
+                          >
+                            <HiClipboard className="w-3 h-3" />
+                          </div>
+
                           <div
                             onClick={(e) => {
                               e.stopPropagation();
@@ -732,6 +772,7 @@ function MobileAccordionDay({
   askDelete,
   getRouteName,
   getCarName,
+  copyBooking,
 }) {
   const [open, setOpen] = useState(false);
 
@@ -769,7 +810,18 @@ function MobileAccordionDay({
                   {b.total_price.toLocaleString("vi-VN")} đ
                 </div>
 
-                <div className="flex gap-3">
+                <div className="flex gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      copyBooking(b);
+                    }}
+                    className="p-2 rounded hover:bg-blue-700 text-blue-300 hover:text-white"
+                    title="Copy thông tin"
+                  >
+                    <HiClipboard />
+                  </button>
+
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
