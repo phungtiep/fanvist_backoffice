@@ -230,11 +230,12 @@ export default function ScheduleCalendar() {
         }
 
         const total = selectedBooking.total_price || 0;
+        const toll_fees = existing?.toll_fees || 0;
         const driver_pay = driverId
-            ? Math.round(total * (commission / 100))
+            ? Math.round((total - toll_fees) * (commission / 100))
             : 0;
 
-        const company_profit = total - driver_pay;
+        const company_profit = total - driver_pay - toll_fees;
 
         let error;
         if (!existing) {

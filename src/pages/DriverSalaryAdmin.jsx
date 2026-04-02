@@ -138,15 +138,18 @@ export default function DriverSalaryAdmin() {
 
     // ===== CALCULATE TOTALS =====
     let revenue = 0;
-    filtered.forEach((r) => (revenue += r.booking?.total_price || 0));
+    let totalCommission = 0;
+    
+    filtered.forEach((r) => {
+      const tripRev = r.booking?.total_price || 0;
+      const tripToll = r.toll_fees || 0;
+      revenue += tripRev;
+      totalCommission += (tripRev - tripToll) * (commissionPercent / 100);
+    });
 
     const baseSalary = driver.base_salary || 0;
-    const commissionPercent = driver.commission_percent || 0;
-    const rate = commissionPercent / 100;
-
-    const commissionMoney = revenue * rate;
-    const driverPay = baseSalary + commissionMoney;
-    const profit = revenue - commissionMoney;
+    const driverPay = baseSalary + totalCommission;
+    const profit = revenue - totalCommission - filtered.reduce((acc, r) => acc + (r.toll_fees || 0), 0);
 
     setSummary({
       driver,
@@ -156,6 +159,7 @@ export default function DriverSalaryAdmin() {
       driverPay,
       profit,
     });
+
 
     setLoading(false);
   }
@@ -267,8 +271,10 @@ export default function DriverSalaryAdmin() {
                 <th className="px-3 py-2">Tuyến</th>
                 <th className="px-3 py-2">Biển số</th>
                 <th className="px-3 py-2 text-right">Doanh thu</th>
+                <th className="px-3 py-2 text-right">Phí cầu đường</th>
                 <th className="px-3 py-2 text-right">Tài xế nhận</th>
                 <th className="px-3 py-2 text-right">Lợi nhuận</th>
+
                 <th className="px-3 py-2 text-center">Trạng thái</th>
                 <th className="px-3 py-2 text-center">Duyệt</th>
               </tr>
@@ -277,9 +283,10 @@ export default function DriverSalaryAdmin() {
             <tbody>
               {details.map((r) => {
                 const total = r.booking?.total_price || 0;
+                const toll = r.toll_fees || 0;
                 const rate = summary.commission / 100;
-                const driverMoney = total * rate;
-                const companyMoney = total - driverMoney;
+                const driverMoney = Math.round((total - toll) * rate);
+                const companyMoney = total - driverMoney - toll;
 
                 return (
                   <tr key={r.id} className="border-t border-slate-700">
@@ -294,6 +301,10 @@ export default function DriverSalaryAdmin() {
                       {total.toLocaleString("vi-VN")} đ
                     </td>
 
+                    <td className="px-3 py-2 text-right text-slate-400">
+                      {toll.toLocaleString("vi-VN")} đ
+                    </td>
+
                     <td className="px-3 py-2 text-right text-emerald-400">
                       {driverMoney.toLocaleString("vi-VN")} đ
                     </td>
@@ -301,6 +312,7 @@ export default function DriverSalaryAdmin() {
                     <td className="px-3 py-2 text-right text-yellow-300">
                       {companyMoney.toLocaleString("vi-VN")} đ
                     </td>
+
 
                     <td className="px-3 py-2 text-center">
                       {r.paid ? (

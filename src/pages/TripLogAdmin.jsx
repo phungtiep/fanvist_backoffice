@@ -120,9 +120,10 @@ export default function TripLogAdmin() {
     try {
       const revenue = row.booking?.total_price || 0;
       const commission = row.driver?.commission_percent || 70;
-      const driverPay = Math.round(revenue * (commission / 100));
       const tollFees = Number(row.toll_fees || 0);
+      const driverPay = Math.round((revenue - tollFees) * (commission / 100));
       const companyProfit = revenue - driverPay - tollFees;
+
 
       const { error } = await supabase
         .from("driver_assignments")
@@ -235,9 +236,10 @@ export default function TripLogAdmin() {
               {details.map((r) => {
                 const revenue = r.booking?.total_price || 0;
                 const commission = r.driver?.commission_percent || 70;
-                const driverPay = Math.round(revenue * (commission / 100));
                 const tollFees = Number(r.toll_fees || 0);
+                const driverPay = Math.round((revenue - tollFees) * (commission / 100));
                 const profit = revenue - driverPay - tollFees;
+
 
                 return (
                   <tr key={r.id} className="hover:bg-slate-700/30 transition-colors">
