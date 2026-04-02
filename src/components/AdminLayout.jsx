@@ -180,6 +180,10 @@ function Sidebar({ closeMenu, onLogout }) {
         Lương tài xế
       </NavLink>
 
+      <NavLink to="/admin/trip-log" className={linkClass} onClick={handleClick}>
+        Nhật ký & Lương tiết
+      </NavLink>
+
       <NavLink to="/admin/revenue" className={linkClass} onClick={handleClick}>
         Báo cáo doanh thu công ty
       </NavLink>
