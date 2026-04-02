@@ -181,7 +181,7 @@ function Sidebar({ closeMenu, onLogout }) {
       </NavLink>
 
       <NavLink to="/admin/trip-log" className={linkClass} onClick={handleClick}>
-        Nhật ký & Lương tiết
+        Nhật ký & Lương chi tiết
       </NavLink>
 
       <NavLink to="/admin/revenue" className={linkClass} onClick={handleClick}>
