@@ -67,11 +67,11 @@ export default function BusinessReport() {
       else if (activeTab === "month") key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       else key = `${d.getFullYear()}`;
 
-      if (!reportMap.has(key)) reportMap.set(key, { key, revenue: 0, cost: 0, profit: 0 });
+      if (!reportMap.has(key)) reportMap.set(key, { key, revenue: 0, salary: 0, toll: 0, profit: 0 });
       reportMap.get(key).revenue += b.total_price || 0;
     });
 
-    // 2. Group Assignments (Driver Pay + Toll Fees)
+    // 2. Group Assignments (Driver Pay, Toll Fees)
     data.assignments.forEach((a) => {
       let key;
       const d = new Date(a.booking?.date);
@@ -79,23 +79,25 @@ export default function BusinessReport() {
       else if (activeTab === "month") key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       else key = `${d.getFullYear()}`;
 
-      if (!reportMap.has(key)) reportMap.set(key, { key, revenue: 0, cost: 0, profit: 0 });
-      const tripCost = (a.driver_pay || 0) + (a.toll_fees || 0);
-      reportMap.get(key).cost += tripCost;
+      if (!reportMap.has(key)) reportMap.set(key, { key, revenue: 0, salary: 0, toll: 0, profit: 0 });
+      reportMap.get(key).salary += a.driver_pay || 0;
+      reportMap.get(key).toll += a.toll_fees || 0;
     });
 
     // 3. Finalize
     const list = Array.from(reportMap.values()).map(item => ({
       ...item,
-      profit: item.revenue - item.cost
+      profit: item.revenue - item.salary - item.toll
     })).sort((a, b) => a.key.localeCompare(b.key));
 
     const totalRevenue = list.reduce((s, x) => s + x.revenue, 0);
-    const totalCost = list.reduce((s, x) => s + x.cost, 0);
-    const totalProfit = totalRevenue - totalCost;
+    const totalSalary = list.reduce((s, x) => s + x.salary, 0);
+    const totalToll = list.reduce((s, x) => s + x.toll, 0);
+    const totalProfit = totalRevenue - totalSalary - totalToll;
 
-    return { list, totalRevenue, totalCost, totalProfit };
+    return { list, totalRevenue, totalSalary, totalToll, totalProfit };
   }, [data, activeTab]);
+
 
   // ======= RENDER HELPERS =======
   const formatMoney = (v) => v.toLocaleString("vi-VN") + " đ";
@@ -184,7 +186,7 @@ export default function BusinessReport() {
       </div>
 
       {/* KPI CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <KPICard 
           title="Tổng Doanh Thu" 
           value={stats.totalRevenue} 
@@ -194,13 +196,20 @@ export default function BusinessReport() {
           valueColor="text-blue-400"
         />
         <KPICard 
-          title="Tổng Chi Phí" 
-          value={stats.totalCost} 
+          title="Tổng Lương Xế" 
+          value={stats.totalSalary} 
           icon={<HiChip className="text-rose-400 text-3xl" />} 
           bgColor="bg-rose-500/10"
           borderColor="border-rose-500/20"
           valueColor="text-rose-400"
-          subtitle="(Lương + Cầu đường)"
+        />
+        <KPICard 
+          title="Tổng Cầu Đường" 
+          value={stats.totalToll} 
+          icon={<HiChartBar className="text-amber-400 text-3xl" />} 
+          bgColor="bg-amber-500/10"
+          borderColor="border-amber-500/20"
+          valueColor="text-amber-400"
         />
         <KPICard 
           title="Lợi Nhuận Thực" 
@@ -211,6 +220,7 @@ export default function BusinessReport() {
           valueColor="text-emerald-400"
         />
       </div>
+
 
       {/* CHART & TABLE */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
@@ -224,12 +234,14 @@ export default function BusinessReport() {
             <table className="w-full text-sm">
               <thead className="bg-slate-800/40 text-slate-400 font-semibold text-xs uppercase tracking-widest">
                 <tr>
-                  <th className="px-6 py-4 text-left">Thời gian</th>
-                  <th className="px-6 py-4 text-right">Doanh thu</th>
-                  <th className="px-6 py-4 text-right text-rose-300">Chi phí</th>
-                  <th className="px-6 py-4 text-right text-emerald-300">Lợi nhuận</th>
+                  <th className="px-4 py-4 text-left">Thời gian</th>
+                  <th className="px-4 py-4 text-right">Doanh thu</th>
+                  <th className="px-4 py-4 text-right text-rose-300">Lương xế</th>
+                  <th className="px-4 py-4 text-right text-amber-300">Cầu đường</th>
+                  <th className="px-4 py-4 text-right text-emerald-300">Lợi nhuận</th>
                 </tr>
               </thead>
+
               <tbody className="divide-y divide-slate-800/50">
                 {stats.list.length === 0 && !loading && (
                   <tr>
@@ -238,12 +250,14 @@ export default function BusinessReport() {
                 )}
                 {stats.list.map((row) => (
                   <tr key={row.key} className="hover:bg-slate-800/30 transition-colors duration-200">
-                    <td className="px-6 py-4 font-semibold">{getLabel(row.key)}</td>
-                    <td className="px-6 py-4 text-right">{formatMoney(row.revenue)}</td>
-                    <td className="px-6 py-4 text-right text-rose-400">{formatMoney(row.cost)}</td>
-                    <td className="px-6 py-4 text-right text-emerald-400 font-bold">{formatMoney(row.profit)}</td>
+                    <td className="px-4 py-4 font-semibold">{getLabel(row.key)}</td>
+                    <td className="px-4 py-4 text-right">{formatMoney(row.revenue)}</td>
+                    <td className="px-4 py-4 text-right text-rose-400">{formatMoney(row.salary)}</td>
+                    <td className="px-4 py-4 text-right text-amber-400">{formatMoney(row.toll)}</td>
+                    <td className="px-4 py-4 text-right text-emerald-400 font-bold">{formatMoney(row.profit)}</td>
                   </tr>
                 ))}
+
               </tbody>
             </table>
           </div>

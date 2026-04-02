@@ -436,10 +436,12 @@ export default function BookingsAdmin() {
           </div>
 
           <button
-            className="px-4 py-2 bg-blue-600 rounded-lg flex items-center gap-2"
+            className="fixed bottom-8 right-8 z-[100] px-5 py-4 bg-blue-600 hover:bg-blue-500 rounded-full flex items-center gap-2 shadow-[0_8px_30px_rgb(0,0,0,0.4)] hover:scale-105 active:scale-95 transition-all duration-300 ring-4 ring-blue-600/10"
             onClick={openAdd}
+            title="Thêm Booking"
           >
-            <HiPlus /> Thêm Booking
+            <HiPlus className="text-xl" />
+            <span className="hidden sm:inline font-bold">Thêm Booking</span>
           </button>
 
         </div>
