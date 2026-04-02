@@ -22,6 +22,8 @@ import TaxiDriverAdmin from "./pages/TaxiDriverAdmin.jsx";
 import TaxiDriverLogin from "./pages/TaxiDriverLogin.jsx";
 import TaxiDriverReport from "./pages/TaxiDriverReport.jsx";
 import TripLogAdmin from "./pages/TripLogAdmin.jsx";
+import BusinessReport from "./pages/BusinessReport.jsx";
+
 
 
 ReactDOM.createRoot(document.getElementById("root")).render(
@@ -56,6 +58,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                     <Route path="vehicles" element={<VehiclesAdmin />} />
                     <Route path="driver-salary" element={<DriverSalaryAdmin />} />
                     <Route path="revenue" element={<RevenueDashboard />} />
+                    <Route path="business-report" element={<BusinessReport />} />
+
                     <Route path="taxi" element={<TaxiAdmin />} />
                     <Route path="taxi-driver" element={<TaxiDriverAdmin />} />
                     <Route path="trip-log" element={<TripLogAdmin />} />

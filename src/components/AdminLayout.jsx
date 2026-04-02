@@ -166,8 +166,8 @@ function Sidebar({ closeMenu, onLogout }) {
       <NavLink to="/admin/driver-salary" className={linkClass} onClick={handleClick}>
         Lương tài xế
       </NavLink>
-      <NavLink to="/admin/revenue" className={linkClass} onClick={handleClick}>
-        Báo cáo doanh thu công ty
+      <NavLink to="/admin/business-report" className={linkClass} onClick={handleClick}>
+        Báo cáo kinh doanh tổng hợp
       </NavLink>
 
       <NavLink to="/admin/routes" className={linkClass} onClick={handleClick}>
