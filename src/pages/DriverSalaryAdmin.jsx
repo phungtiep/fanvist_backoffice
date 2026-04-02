@@ -137,6 +137,7 @@ export default function DriverSalaryAdmin() {
     setDetails(filtered);
 
     // ===== CALCULATE TOTALS =====
+    const commissionPercent = driver.commission_percent || 0;
     let revenue = 0;
     let totalCommission = 0;
     
