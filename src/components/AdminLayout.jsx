@@ -155,6 +155,20 @@ function Sidebar({ closeMenu, onLogout }) {
       <NavLink to="/admin/bookings" className={linkClass} onClick={handleClick}>
         Quản lý Booking
       </NavLink>
+      <NavLink to="/admin/trip-log" className={linkClass} onClick={handleClick}>
+        Nhật ký & Lương chi tiết
+      </NavLink>
+      
+      <NavLink to="/admin/schedule" className={linkClass} onClick={handleClick}>
+        Calendar phân công
+      </NavLink>
+
+      <NavLink to="/admin/driver-salary" className={linkClass} onClick={handleClick}>
+        Lương tài xế
+      </NavLink>
+      <NavLink to="/admin/revenue" className={linkClass} onClick={handleClick}>
+        Báo cáo doanh thu công ty
+      </NavLink>
 
       <NavLink to="/admin/routes" className={linkClass} onClick={handleClick}>
         Tuyến đường & Giá
@@ -172,21 +186,7 @@ function Sidebar({ closeMenu, onLogout }) {
         Quản lý xe công ty
       </NavLink>
 
-      <NavLink to="/admin/schedule" className={linkClass} onClick={handleClick}>
-        Calendar phân công
-      </NavLink>
-
-      <NavLink to="/admin/driver-salary" className={linkClass} onClick={handleClick}>
-        Lương tài xế
-      </NavLink>
-
-      <NavLink to="/admin/trip-log" className={linkClass} onClick={handleClick}>
-        Nhật ký & Lương chi tiết
-      </NavLink>
-
-      <NavLink to="/admin/revenue" className={linkClass} onClick={handleClick}>
-        Báo cáo doanh thu công ty
-      </NavLink>
+      
 
       <NavLink to="/admin/taxi-driver" className={linkClass} onClick={handleClick}>
         Quản lý tài xế taxi
