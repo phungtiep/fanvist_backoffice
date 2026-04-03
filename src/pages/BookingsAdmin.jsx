@@ -307,6 +307,12 @@ export default function BookingsAdmin() {
 
   const handleSave = async () => {
     if (!form) return;
+
+    // Validate: bắt buộc chọn ngày đi
+    if (!form.date) {
+      return showToast("Vui lòng chọn ngày đi!", "error");
+    }
+
     setLoadingSave(true);
 
     const payload = {
